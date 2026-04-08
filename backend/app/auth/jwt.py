@@ -29,7 +29,7 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, secret: str, expire_hours: int) -> str:
+def create_access_token(data: dict, secret: str, expire_hours: int, algorithm: str = "HS256") -> str:
     """
     Create a signed JWT token.
     Think of it like a tamper-proof wristband for a concert:
@@ -39,7 +39,7 @@ def create_access_token(data: dict, secret: str, expire_hours: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=expire_hours)
     payload["exp"] = expire
     payload["iat"] = datetime.now(timezone.utc)
-    token = jwt.encode(payload, secret, algorithm="HS256")
+    token = jwt.encode(payload, secret, algorithm=algorithm)
     return token
 
 

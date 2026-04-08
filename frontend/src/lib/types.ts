@@ -31,9 +31,14 @@ export interface Document {
 export interface Analysis {
   id: string
   provider_type: ProviderType
-  ai_model_used: string
+  ai_model_used: string | null
   triggered_by: 'partner' | 'analyst'
   created_at: string
+}
+
+export interface ReanalyseResponse {
+  status: string
+  analysis_id: string
 }
 
 export interface SubmissionDetail extends SubmissionListItem {

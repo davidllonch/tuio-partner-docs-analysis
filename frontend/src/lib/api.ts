@@ -6,6 +6,7 @@ import type {
   LoginRequest,
   LoginResponse,
   ReanalyseRequest,
+  ReanalyseResponse,
 } from './types'
 
 const baseURL = import.meta.env.VITE_API_URL
@@ -74,8 +75,8 @@ export async function fetchSubmission(id: string): Promise<SubmissionDetail> {
   return response.data
 }
 
-export async function createSubmission(formData: FormData): Promise<{ id: string }> {
-  const response = await apiClient.post<{ id: string }>('/api/submissions', formData, {
+export async function createSubmission(formData: FormData): Promise<{ status: string }> {
+  const response = await apiClient.post<{ status: string }>('/api/submissions', formData, {
     headers: {
       // Let axios set the correct multipart boundary automatically
       'Content-Type': 'multipart/form-data',
@@ -87,8 +88,8 @@ export async function createSubmission(formData: FormData): Promise<{ id: string
 export async function reanalyseSubmission(
   id: string,
   data: ReanalyseRequest
-): Promise<SubmissionDetail> {
-  const response = await apiClient.post<SubmissionDetail>(
+): Promise<ReanalyseResponse> {
+  const response = await apiClient.post<ReanalyseResponse>(
     `/api/submissions/${id}/reanalyse`,
     data
   )

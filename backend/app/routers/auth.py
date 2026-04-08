@@ -58,6 +58,7 @@ async def login(
         data={"sub": str(analyst.id)},
         secret=settings.JWT_SECRET_KEY,
         expire_hours=settings.JWT_EXPIRE_HOURS,
+        algorithm=settings.JWT_ALGORITHM,
     )
 
     logger.info("Analyst logged in: %s", analyst.email)

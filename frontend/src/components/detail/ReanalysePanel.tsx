@@ -168,7 +168,7 @@ export function ReanalysePanel({
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap font-mono">
-                      {analysis.ai_model_used}
+                      {analysis.ai_model_used ?? '—'}
                     </td>
                   </tr>
                 ))}

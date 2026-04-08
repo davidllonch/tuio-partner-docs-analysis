@@ -4,7 +4,7 @@ import {
   fetchSubmission,
   reanalyseSubmission,
 } from '../lib/api'
-import type { PaginatedSubmissions, SubmissionDetail, ReanalyseRequest } from '../lib/types'
+import type { PaginatedSubmissions, SubmissionDetail, ReanalyseRequest, ReanalyseResponse } from '../lib/types'
 
 export function useSubmissions(page: number = 1, size: number = 20) {
   return useQuery<PaginatedSubmissions>({
@@ -33,14 +33,11 @@ export function useSubmission(id: string) {
 export function useReanalyse(submissionId: string) {
   const queryClient = useQueryClient()
 
-  return useMutation({
+  return useMutation<ReanalyseResponse, Error, ReanalyseRequest>({
     mutationFn: (data: ReanalyseRequest) => reanalyseSubmission(submissionId, data),
-    onSuccess: (updatedSubmission) => {
-      // Update the cached detail immediately so the UI reflects the new analysis
-      queryClient.setQueryData<SubmissionDetail>(
-        ['submissions', submissionId],
-        updatedSubmission
-      )
+    onSuccess: () => {
+      // Invalidate and refetch the submission so the UI shows the new AI report
+      queryClient.invalidateQueries({ queryKey: ['submissions', submissionId] })
       // Also invalidate the list so the status badge updates on the dashboard
       queryClient.invalidateQueries({ queryKey: ['submissions'] })
     },
