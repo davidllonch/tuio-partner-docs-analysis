@@ -29,14 +29,14 @@ services:
         condition: service_healthy
     networks:
       - internal
-      - traefik_network
+      - traefik
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.kyc-api.rule=Host(`partnerdocs.tuio.com`) && PathPrefix(`/api`)"
       - "traefik.http.routers.kyc-api.entrypoints=websecure"
       - "traefik.http.routers.kyc-api.tls.certresolver=le"
       - "traefik.http.services.kyc-api.loadbalancer.server.port=8000"
-      - "traefik.docker.network=traefik_network"
+      - "traefik.docker.network=traefik"
 
   frontend:
     build:
@@ -45,14 +45,14 @@ services:
         VITE_API_URL: ""
     restart: unless-stopped
     networks:
-      - traefik_network
+      - traefik
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.kyc-frontend.rule=Host(`partnerdocs.tuio.com`)"
       - "traefik.http.routers.kyc-frontend.entrypoints=websecure"
       - "traefik.http.routers.kyc-frontend.tls.certresolver=le"
       - "traefik.http.services.kyc-frontend.loadbalancer.server.port=80"
-      - "traefik.docker.network=traefik_network"
+      - "traefik.docker.network=traefik"
       # HTTP → HTTPS redirect
       - "traefik.http.routers.kyc-frontend-http.rule=Host(`partnerdocs.tuio.com`)"
       - "traefik.http.routers.kyc-frontend-http.entrypoints=web"
@@ -66,6 +66,6 @@ volumes:
 networks:
   internal:
     driver: bridge
-  traefik_network:
+  traefik:
     external: true
-    name: traefik_network
+    name: traefik
