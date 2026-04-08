@@ -32,7 +32,7 @@ services:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.kyc-api.rule=Host(`partnerdocs.tuio.com`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.kyc-api.rule=Host(`tuiopartnerdocs.42labs.es`) && PathPrefix(`/api`)"
       - "traefik.http.routers.kyc-api.entrypoints=websecure"
       - "traefik.http.routers.kyc-api.tls.certresolver=le"
       - "traefik.http.services.kyc-api.loadbalancer.server.port=8000"
@@ -48,13 +48,13 @@ services:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.kyc-frontend.rule=Host(`partnerdocs.tuio.com`)"
+      - "traefik.http.routers.kyc-frontend.rule=Host(`tuiopartnerdocs.42labs.es`)"
       - "traefik.http.routers.kyc-frontend.entrypoints=websecure"
       - "traefik.http.routers.kyc-frontend.tls.certresolver=le"
       - "traefik.http.services.kyc-frontend.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik"
       # HTTP → HTTPS redirect
-      - "traefik.http.routers.kyc-frontend-http.rule=Host(`partnerdocs.tuio.com`)"
+      - "traefik.http.routers.kyc-frontend-http.rule=Host(`tuiopartnerdocs.42labs.es`)"
       - "traefik.http.routers.kyc-frontend-http.entrypoints=web"
       - "traefik.http.routers.kyc-frontend-http.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
