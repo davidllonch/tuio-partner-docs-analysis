@@ -1,0 +1,71 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kyc_db
+      POSTGRES_USER: kyc_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - kyc_postgres:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyc_user -d kyc_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://kyc_user:${DB_PASSWORD}@db:5432/kyc_db
+    volumes:
+      - kyc_documents:/data/documents
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+      - traefik_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kyc-api.rule=Host(`partnerdocs.tuio.com`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.kyc-api.entrypoints=websecure"
+      - "traefik.http.routers.kyc-api.tls.certresolver=le"
+      - "traefik.http.services.kyc-api.loadbalancer.server.port=8000"
+      - "traefik.docker.network=traefik_network"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ""
+    restart: unless-stopped
+    networks:
+      - traefik_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kyc-frontend.rule=Host(`partnerdocs.tuio.com`)"
+      - "traefik.http.routers.kyc-frontend.entrypoints=websecure"
+      - "traefik.http.routers.kyc-frontend.tls.certresolver=le"
+      - "traefik.http.services.kyc-frontend.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_network"
+      # HTTP → HTTPS redirect
+      - "traefik.http.routers.kyc-frontend-http.rule=Host(`partnerdocs.tuio.com`)"
+      - "traefik.http.routers.kyc-frontend-http.entrypoints=web"
+      - "traefik.http.routers.kyc-frontend-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+
+volumes:
+  kyc_postgres:
+  kyc_documents:
+
+networks:
+  internal:
+    driver: bridge
+  traefik_network:
+    external: true
+    name: traefik_network
