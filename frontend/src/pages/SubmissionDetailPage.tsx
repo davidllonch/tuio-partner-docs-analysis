@@ -127,6 +127,7 @@ export function SubmissionDetailPage() {
                 status={submission.status}
                 aiResponse={submission.ai_response}
                 errorMessage={submission.error_message}
+                providerName={submission.provider_name}
               />
             </div>
 
