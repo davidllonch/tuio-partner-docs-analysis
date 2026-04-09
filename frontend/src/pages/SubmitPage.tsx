@@ -43,7 +43,7 @@ export function SubmitPage() {
       navigate('/thank-you')
     } catch {
       setSubmitError(
-        'Something went wrong. Please try again or contact support at support@tuio.com.'
+        'Something went wrong. Please try again or contact support at legal@tuio.com.'
       )
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } finally {

@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
     env_file: ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://kyc_user:${DB_PASSWORD}@db:5432/kyc_db
+      DATABASE_URL: postgresql+asyncpg://kyc_user:${DB_PASSWORD_ENCODED}@db:5432/kyc_db
     volumes:
       - kyc_documents:/data/documents
     depends_on:
