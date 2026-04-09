@@ -7,6 +7,9 @@ from typing import List, Optional
 
 import asyncio
 import html as html_lib
+import markdown as md_lib
+import weasyprint
+import nh3
 
 from fastapi import (
     APIRouter,
@@ -48,6 +51,16 @@ from app.services.extraction import extract_documents
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["submissions"])
+
+# HTML tags that are safe to include in a generated PDF.
+# Any other tags produced by the Markdown→HTML conversion are stripped by nh3.
+_PDF_ALLOWED_TAGS = {
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "ul", "ol", "li",
+    "strong", "em", "b", "i",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "hr", "blockquote", "code", "pre", "br",
+}
 
 # Module-level limiter for the public submission endpoint.
 _limiter = Limiter(key_func=get_remote_address)
@@ -712,9 +725,6 @@ async def download_report_pdf(
     The PDF contains real selectable text (not an image), generated from the
     AI Markdown response using weasyprint.
     """
-    import markdown as md_lib
-    import weasyprint
-
     result = await db.execute(select(Submission).where(Submission.id == submission_id))
     submission = result.scalar_one_or_none()
 
@@ -723,8 +733,10 @@ async def download_report_pdf(
     if not submission.ai_response:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No report available for this submission")
 
-    # Convert Markdown → HTML (tables extension for the semaphore table)
+    # Convert Markdown → HTML (tables extension for the semaphore table),
+    # then sanitize to remove any unexpected tags from the AI output (C1).
     html_body = md_lib.markdown(submission.ai_response, extensions=["tables", "extra"])
+    html_body = nh3.clean(html_body, tags=_PDF_ALLOWED_TAGS)
 
     # Escape values that go into the HTML template
     safe_provider = html_lib.escape(submission.provider_name or "Unknown")
@@ -772,9 +784,23 @@ async def download_report_pdf(
         lambda: weasyprint.HTML(string=full_html).write_pdf()
     )
 
-    # Build a safe ASCII filename (strip accents and special characters)
-    safe_name = re.sub(r"[^\w\s\-]", "", submission.provider_name or "").strip().replace(" ", "_")
+    # Build a strictly ASCII-only filename (C2).
+    # re.ASCII ensures \w only matches [a-zA-Z0-9_], excluding any Unicode letters.
+    safe_name = re.sub(r"[^\w\s\-]", "", submission.provider_name or "", flags=re.ASCII).strip().replace(" ", "_")
     filename = f"Informe_KYC_{safe_name}.pdf" if safe_name else "Informe_KYC.pdf"
+
+    # Record PDF download in the audit log (W2)
+    await _log_audit(
+        db=db,
+        action="report_pdf_downloaded",
+        analyst_id=current_analyst.id,
+        submission_id=submission_id,
+        metadata={
+            "analyst_email": current_analyst.email,
+            "filename": filename,
+        },
+    )
+    await db.commit()
 
     return Response(
         content=pdf_bytes,

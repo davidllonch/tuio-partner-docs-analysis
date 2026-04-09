@@ -5,6 +5,7 @@ import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { AlertCircle, Download, Loader2 } from 'lucide-react'
 import type { SubmissionStatus } from '../../lib/types'
 import { downloadReportPdf } from '../../lib/api'
+import { useToast } from '../ui/Toast'
 
 interface AIReportPanelProps {
   submissionId: string
@@ -82,6 +83,7 @@ const md = {
 
 export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, providerName }: AIReportPanelProps) {
   const [isGenerating, setIsGenerating] = useState(false)
+  const { toast } = useToast()
 
   const handleDownloadPDF = async () => {
     if (isGenerating) return
@@ -90,6 +92,12 @@ export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, 
       const safeName = (providerName ?? '').replace(/[^\w\s\-]/g, '').trim().replace(/\s+/g, '_')
       const filename = safeName ? `Informe_KYC_${safeName}.pdf` : 'Informe_KYC.pdf'
       await downloadReportPdf(submissionId, filename)
+    } catch {
+      toast({
+        title: 'Download failed',
+        description: 'Could not generate the PDF report. Please try again.',
+        variant: 'error',
+      })
     } finally {
       setIsGenerating(false)
     }
