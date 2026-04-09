@@ -134,9 +134,9 @@ Criterio similar a colaborador externo. Confirmar que la actividad es solo capta
 
 ## 6. Método de clasificación semáforo
 
-- VERDE: validado suficientemente.
-- AMARILLO: validado parcialmente, con reservas.
-- ROJO: no validado, no aportado, insuficiente, no firmado o con incidencia crítica.
+- 🟢 VERDE: validado suficientemente.
+- 🟡 AMARILLO: validado parcialmente, con reservas.
+- 🔴 ROJO: no validado, no aportado, insuficiente, no firmado o con incidencia crítica.
 
 Dividir en: Bloque A (Crítico), Bloque B (Importante), Bloque C (Formal/complementario).
 
@@ -146,7 +146,7 @@ Informe interno en español. Estructura:
 1. Asunto
 2. Resumen ejecutivo (3-6 líneas)
 3. Documentación recibida identificada
-4. Análisis semáforo por bloques (A, B, C) con formato: [VERDE/AMARILLO/ROJO] Nombre del requisito + Documento revisado + Qué se ha podido validar + Equivalencia + Observaciones + Acción recomendada
+4. Análisis semáforo por bloques (A, B, C) con formato: 🟢/🟡/🔴 Nombre del requisito + Documento revisado + Qué se ha podido validar + Equivalencia + Observaciones + Acción recomendada
 5. Pendientes documentales
 6. Conclusión operativa (apto / apto con reservas / no apto)
 
