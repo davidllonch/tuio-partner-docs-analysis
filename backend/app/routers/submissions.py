@@ -7,6 +7,7 @@ from typing import List, Optional
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -24,7 +25,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth.jwt import get_current_analyst
 from app.config import Settings, get_settings
-from app.database import get_db
+from app.database import get_db, AsyncSessionLocal
 from app.models.analysis import Analysis
 from app.models.analyst import Analyst
 from app.models.audit import AuditLog
@@ -38,7 +39,7 @@ from app.schemas.submission import (
     VALID_PROVIDER_TYPES,
 )
 from app.services.ai_analysis import run_analysis
-from app.services.email_service import send_kyc_report
+from app.services.email_service import send_submission_notification
 from app.services.extraction import extract_documents
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["submissions"])
 
 # Module-level limiter for the public submission endpoint.
-# This instance reads the rate-limit state from the app's shared limiter via the Request.
 _limiter = Limiter(key_func=get_remote_address)
 
 # File type allowlist — only these MIME types are accepted
@@ -68,13 +68,9 @@ def _sanitize_filename(filename: str) -> str:
     - Remove characters that could cause path traversal attacks
     - Keep the extension
     """
-    # Remove any directory separators (security: prevent path traversal)
     filename = os.path.basename(filename)
-    # Replace spaces with underscores
     filename = filename.replace(" ", "_")
-    # Remove characters that are not alphanumeric, underscore, hyphen, or dot
     filename = re.sub(r"[^\w\-.]", "", filename)
-    # Prevent empty filenames
     if not filename:
         filename = "document"
     return filename
@@ -110,8 +106,118 @@ async def _log_audit(
         metadata_=metadata,
     )
     db.add(log_entry)
-    # We flush but don't commit here — the caller handles the transaction
     await db.flush()
+
+
+# ---------------------------------------------------------------------------
+# Background task: AI analysis + email notification
+# ---------------------------------------------------------------------------
+
+
+async def _background_analyse(
+    submission_id: uuid.UUID,
+    provider_name: str,
+    provider_type: str,
+    entity_type: str,
+    country: str,
+    extraction_inputs: list[dict],
+    settings: Settings,
+) -> None:
+    """
+    Background task that runs AFTER the HTTP response is returned to the partner.
+
+    Flow:
+      1. Extract text/images from the saved documents
+      2. Run AI analysis (Anthropic Claude, with OpenAI fallback)
+      3. Store the analysis result in the database
+      4. Send a brief notification email to the compliance team
+      5. Mark the submission as 'complete'
+
+    Uses its own database session because the request session is already closed.
+    """
+    async with AsyncSessionLocal() as db:
+        try:
+            # Re-fetch the submission in this new session
+            result = await db.execute(
+                select(Submission).where(Submission.id == submission_id)
+            )
+            submission = result.scalar_one()
+
+            # Step 1: Extract text / images from documents
+            logger.info("Background: extracting docs for submission %s", submission_id)
+            extracted_docs = await extract_documents(extraction_inputs)
+
+            # Step 2: Run AI analysis
+            logger.info("Background: running AI analysis for submission %s", submission_id)
+            ai_response, model_used = await run_analysis(
+                provider_name=provider_name,
+                provider_type=provider_type,
+                entity_type=entity_type,
+                country=country,
+                extracted_docs=extracted_docs,
+                anthropic_api_key=settings.ANTHROPIC_API_KEY,
+                openai_api_key=settings.OPENAI_API_KEY,
+            )
+
+            # Step 3: Store analysis record
+            analysis_id = uuid.uuid4()
+            analysis = Analysis(
+                id=analysis_id,
+                submission_id=submission_id,
+                provider_type=provider_type,
+                ai_response=ai_response,
+                ai_model_used=model_used,
+                triggered_by="partner",
+                analyst_id=None,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(analysis)
+
+            # Step 4: Send notification email (small, no full analysis)
+            logger.info(
+                "Background: sending notification email for submission %s", submission_id
+            )
+            await send_submission_notification(
+                provider_name=provider_name,
+                provider_type=provider_type,
+                recipient=settings.REPORT_EMAIL_RECIPIENT,
+                from_address=settings.EMAIL_FROM_ADDRESS,
+                smtp_host=settings.SMTP_HOST,
+                smtp_port=settings.SMTP_PORT,
+                smtp_user=settings.SMTP_USER,
+                smtp_password=settings.SMTP_PASSWORD,
+            )
+            email_sent_at = datetime.now(timezone.utc)
+            analysis.email_sent_at = email_sent_at
+
+            # Step 5: Mark submission as complete
+            submission.status = "complete"
+            submission.ai_response = ai_response
+            submission.ai_model_used = model_used
+            submission.email_sent_at = email_sent_at
+
+            await db.commit()
+            logger.info("Background: submission %s completed successfully", submission_id)
+
+        except Exception as exc:
+            logger.error(
+                "Background analysis failed for submission %s: %s",
+                submission_id,
+                exc,
+                exc_info=True,
+            )
+            try:
+                result = await db.execute(
+                    select(Submission).where(Submission.id == submission_id)
+                )
+                submission = result.scalar_one_or_none()
+                if submission:
+                    submission.status = "error"
+                    submission.error_message = str(exc)
+                    await db.commit()
+            except Exception as db_exc:
+                logger.error("Could not save error state for submission %s: %s", submission_id, db_exc)
+                await db.rollback()
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +229,7 @@ async def _log_audit(
 @_limiter.limit("20/hour")
 async def create_submission(
     request: Request,
+    background_tasks: BackgroundTasks,
     provider_name: str = Form(...),
     provider_type: str = Form(...),
     entity_type: str = Form(...),
@@ -135,9 +242,9 @@ async def create_submission(
     """
     Public endpoint: a partner submits their KYC/KYB documents for review.
 
-    This is a synchronous pipeline — the request stays open until the AI
-    analysis is complete and the email has been sent. Partners are expected
-    to wait (typically 30–60 seconds depending on document size).
+    Returns immediately after saving documents to disk and database.
+    AI analysis and email notification run in the background — the partner
+    does not have to wait for them.
 
     Rate limited to 20 requests per hour per IP address.
     """
@@ -178,10 +285,9 @@ async def create_submission(
                     f"Allowed: PDF, JPEG, PNG, DOCX"
                 ),
             )
-        # Read file size without loading entire file into memory
         content = await upload_file.read()
         size = len(content)
-        await upload_file.seek(0)  # Reset for later reading
+        await upload_file.seek(0)
 
         if size > MAX_FILE_SIZE_BYTES:
             raise HTTPException(
@@ -226,7 +332,6 @@ async def create_submission(
         safe_filename = _sanitize_filename(upload_file.filename or f"document_{i}")
         file_path = os.path.join(submission_dir, safe_filename)
 
-        # Handle duplicate filenames in the same submission
         if os.path.exists(file_path):
             name, ext = os.path.splitext(safe_filename)
             safe_filename = f"{name}_{i}{ext}"
@@ -256,87 +361,28 @@ async def create_submission(
             }
         )
 
-    # ── 5. Update status to 'analysing' ──────────────────────────────────────
+    # ── 5. Commit to DB and schedule background analysis ─────────────────────
 
     submission.status = "analysing"
     await db.commit()
 
-    # ── 6-9. Extract → AI → Email (wrapped in try/except) ───────────────────
+    # Schedule AI analysis + email as a background task.
+    # The partner receives a success response immediately — no waiting.
+    background_tasks.add_task(
+        _background_analyse,
+        submission_id=submission_id,
+        provider_name=provider_name,
+        provider_type=provider_type,
+        entity_type=entity_type,
+        country=country,
+        extraction_inputs=extraction_inputs,
+        settings=settings,
+    )
 
-    try:
-        # Step 6: Extract text / images from documents
-        logger.info("Extracting documents for submission %s", submission_id)
-        extracted_docs = await extract_documents(extraction_inputs)
-
-        # Step 7: Run AI analysis
-        logger.info("Running AI analysis for submission %s", submission_id)
-        ai_response, model_used = await run_analysis(
-            provider_name=provider_name,
-            provider_type=provider_type,
-            entity_type=entity_type,
-            country=country,
-            extracted_docs=extracted_docs,
-            anthropic_api_key=settings.ANTHROPIC_API_KEY,
-            openai_api_key=settings.OPENAI_API_KEY,
-        )
-
-        # Step 8: Store AI response + create analysis record
-        analysis_id = uuid.uuid4()
-        analysis = Analysis(
-            id=analysis_id,
-            submission_id=submission_id,
-            provider_type=provider_type,
-            ai_response=ai_response,
-            ai_model_used=model_used,
-            triggered_by="partner",
-            analyst_id=None,
-            created_at=datetime.now(timezone.utc),
-        )
-        db.add(analysis)
-
-        # Step 9: Send email
-        logger.info("Sending KYC report email for submission %s", submission_id)
-        await send_kyc_report(
-            provider_name=provider_name,
-            provider_type=provider_type,
-            ai_response=ai_response,
-            recipient=settings.REPORT_EMAIL_RECIPIENT,
-            from_address=settings.EMAIL_FROM_ADDRESS,
-            smtp_host=settings.SMTP_HOST,
-            smtp_port=settings.SMTP_PORT,
-            smtp_user=settings.SMTP_USER,
-            smtp_password=settings.SMTP_PASSWORD,
-        )
-        email_sent_at = datetime.now(timezone.utc)
-        analysis.email_sent_at = email_sent_at
-
-        # Step 10: Mark complete
-        submission.status = "complete"
-        submission.ai_response = ai_response
-        submission.ai_model_used = model_used
-        submission.email_sent_at = email_sent_at
-        await db.commit()
-
-        logger.info("Submission %s completed successfully", submission_id)
-        return {"status": "ok"}
-
-    except Exception as exc:
-        logger.error("Submission %s failed: %s", submission_id, exc, exc_info=True)
-        # Update submission to error state
-        try:
-            submission.status = "error"
-            submission.error_message = str(exc)
-            await db.commit()
-        except Exception as db_exc:
-            logger.error(
-                "Could not save error state for submission %s: %s", submission_id, db_exc
-            )
-            await db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Document analysis failed. Please try again or contact support.",
-        )
+    logger.info(
+        "Submission %s saved. AI analysis scheduled as background task.", submission_id
+    )
+    return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
@@ -362,11 +408,9 @@ async def list_submissions(
 
     offset = (page - 1) * size
 
-    # Count total records
     count_result = await db.execute(select(func.count(Submission.id)))
     total = count_result.scalar_one()
 
-    # Fetch page of results, newest first
     result = await db.execute(
         select(Submission)
         .order_by(Submission.created_at.desc())
@@ -409,7 +453,6 @@ async def get_submission(
             detail="Submission not found",
         )
 
-    # Log this view in the audit trail
     await _log_audit(
         db=db,
         action="submission_viewed",
@@ -456,7 +499,6 @@ async def download_document(
             detail="File no longer exists on disk",
         )
 
-    # Log download in audit trail
     await _log_audit(
         db=db,
         action="document_downloaded",
@@ -473,7 +515,7 @@ async def download_document(
     def iter_file():
         with open(document.file_path, "rb") as f:
             while True:
-                chunk = f.read(1024 * 64)  # 64KB chunks
+                chunk = f.read(1024 * 64)
                 if not chunk:
                     break
                 yield chunk
@@ -500,11 +542,8 @@ async def reanalyse_submission(
 ):
     """
     Re-run AI analysis on an existing submission, optionally correcting the provider type.
-
-    Analysts use this when a partner selected the wrong provider category, or when
-    new information warrants a fresh AI review.
+    Analysts use this when a partner selected the wrong provider category.
     """
-    # Load submission with documents
     result = await db.execute(
         select(Submission)
         .options(selectinload(Submission.documents))
@@ -524,7 +563,6 @@ async def reanalyse_submission(
             detail="Cannot reanalyse: submission has no documents",
         )
 
-    # Verify all document files still exist on disk
     extraction_inputs: list[dict] = []
     for doc in submission.documents:
         if not os.path.exists(doc.file_path):
@@ -548,11 +586,9 @@ async def reanalyse_submission(
         )
 
     try:
-        # Re-extract text from existing files
         logger.info("Re-extracting documents for submission %s (reanalysis)", submission_id)
         extracted_docs = await extract_documents(extraction_inputs)
 
-        # Run AI with the (possibly corrected) provider type
         logger.info(
             "Running reanalysis for submission %s with provider_type=%s",
             submission_id,
@@ -568,21 +604,6 @@ async def reanalyse_submission(
             openai_api_key=settings.OPENAI_API_KEY,
         )
 
-        # Send updated report email
-        await send_kyc_report(
-            provider_name=submission.provider_name,
-            provider_type=body.provider_type,
-            ai_response=ai_response,
-            recipient=settings.REPORT_EMAIL_RECIPIENT,
-            from_address=settings.EMAIL_FROM_ADDRESS,
-            smtp_host=settings.SMTP_HOST,
-            smtp_port=settings.SMTP_PORT,
-            smtp_user=settings.SMTP_USER,
-            smtp_password=settings.SMTP_PASSWORD,
-        )
-        email_sent_at = datetime.now(timezone.utc)
-
-        # Create new analysis history record
         analysis_id = uuid.uuid4()
         analysis = Analysis(
             id=analysis_id,
@@ -593,18 +614,14 @@ async def reanalyse_submission(
             triggered_by="analyst",
             analyst_id=current_analyst.id,
             created_at=datetime.now(timezone.utc),
-            email_sent_at=email_sent_at,
         )
         db.add(analysis)
 
-        # Update the submission with the latest analysis result
         submission.ai_response = ai_response
         submission.ai_model_used = model_used
-        submission.email_sent_at = email_sent_at
         submission.status = "complete"
         submission.error_message = None
 
-        # Audit log
         await _log_audit(
             db=db,
             action="reanalysis_triggered",

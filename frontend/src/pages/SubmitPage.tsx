@@ -187,7 +187,6 @@ export function SubmitPage() {
           <p className="mt-5 text-base font-semibold text-gray-800">
             Sending your documentation…
           </p>
-          <p className="mt-1 text-sm text-gray-500">This may take up to 30 seconds.</p>
         </div>
       )}
     </div>

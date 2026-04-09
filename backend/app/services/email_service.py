@@ -8,41 +8,53 @@ from app.services.ai_analysis import PROVIDER_TYPE_DISPLAY
 logger = logging.getLogger(__name__)
 
 
-async def send_kyc_report(
+async def send_submission_notification(
     provider_name: str,
     provider_type: str,
-    ai_response: str,
     recipient: str,
     from_address: str,
     smtp_host: str,
     smtp_port: int,
     smtp_user: str,
     smtp_password: str,
+    dashboard_url: str = "https://tuiopartnersdocs.42labs.es",
 ) -> None:
     """
-    Send the KYC/KYB analysis report by email using Google Workspace SMTP.
+    Send a brief notification email when a new partner submission arrives.
 
-    Uses Python's built-in smtplib — no external service or API key required.
-    The sending account must have a Google App Password configured.
+    Does NOT include the full AI analysis — analysts read that in the dashboard.
+    Keeping the email small avoids SMTP size rejections and keeps notifications clean.
     """
     provider_display = PROVIDER_TYPE_DISPLAY.get(provider_type, provider_type)
-    subject = f"Revisión KYC/KYB – {provider_name} – {provider_display}"
+    subject = f"Nueva documentación recibida – {provider_name}"
 
-    # Wrap the AI response in a minimal HTML layout.
-    # We use <pre> with white-space: pre-wrap to preserve the AI's formatting
-    # (line breaks, spacing) without requiring Markdown parsing.
     html_body = f"""
     <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #1a1a2e;">Revisión KYC/KYB – {provider_name}</h2>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #1a1a2e;">Nueva documentación de partner recibida</h2>
+        <table style="border-collapse: collapse; width: 100%; margin-bottom: 20px;">
+            <tr>
+                <td style="padding: 8px 0; color: #555; width: 160px;"><strong>Partner:</strong></td>
+                <td style="padding: 8px 0; color: #333;">{provider_name}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #555;"><strong>Tipo de proveedor:</strong></td>
+                <td style="padding: 8px 0; color: #333;">{provider_display}</td>
+            </tr>
+        </table>
         <p style="color: #555;">
-            <strong>Tipo de proveedor:</strong> {provider_display}
+            La documentación ha sido recibida y el análisis KYC/KYB está disponible en el dashboard.
         </p>
-        <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;" />
-        <pre style="white-space: pre-wrap; font-family: Arial, sans-serif; font-size: 14px; color: #333;">{ai_response}</pre>
-        <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;" />
+        <p style="margin-top: 24px;">
+            <a href="{dashboard_url}"
+               style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px;
+                      text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">
+                Ver análisis en el Dashboard →
+            </a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 24px 0;" />
         <p style="font-size: 12px; color: #999;">
-            Este informe ha sido generado automáticamente por el sistema de gestión documental KYC/KYB.
+            Sistema de gestión documental KYC/KYB — Tuio
         </p>
     </body>
     </html>
@@ -61,10 +73,12 @@ async def send_kyc_report(
             server.login(smtp_user, smtp_password)
             server.sendmail(from_address, [recipient], msg.as_string())
         logger.info(
-            "KYC report email sent for provider '%s' to '%s'", provider_name, recipient
+            "Submission notification email sent for provider '%s' to '%s'",
+            provider_name,
+            recipient,
         )
     except Exception as exc:
         logger.error(
-            "Failed to send KYC report email for provider '%s': %s", provider_name, exc
+            "Failed to send notification email for provider '%s': %s", provider_name, exc
         )
         raise
