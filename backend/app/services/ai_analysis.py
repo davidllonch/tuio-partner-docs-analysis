@@ -271,7 +271,7 @@ async def _call_anthropic(
     """
     client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
     response = await client.messages.create(
-        model="claude-3-haiku-20240307",
+        model="claude-sonnet-4-6",
         max_tokens=4096,
         system=[
             {
@@ -282,7 +282,7 @@ async def _call_anthropic(
         ],
         messages=[{"role": "user", "content": content_list}],
     )
-    return response.content[0].text, "claude-3-haiku-20240307"
+    return response.content[0].text, "claude-sonnet-4-6"
 
 
 async def _call_openai(
