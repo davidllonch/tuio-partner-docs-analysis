@@ -56,8 +56,8 @@ services:
       # HTTP → HTTPS redirect
       - "traefik.http.routers.kyc-frontend-http.rule=Host(`tuiopartnersdocs.42labs.es`)"
       - "traefik.http.routers.kyc-frontend-http.entrypoints=web"
-      - "traefik.http.routers.kyc-frontend-http.middlewares=redirect-to-https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.kyc-frontend-http.middlewares=redirect-to-https-kyc"
+      - "traefik.http.middlewares.redirect-to-https-kyc.redirectscheme.scheme=https"
 
 volumes:
   kyc_postgres:
