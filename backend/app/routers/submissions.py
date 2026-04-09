@@ -5,6 +5,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
+import asyncio
+import html as html_lib
+
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -16,9 +19,9 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import Response, StreamingResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -694,3 +697,87 @@ async def reanalyse_submission(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Reanalysis failed. Please try again or contact support.",
         )
+
+
+# ── PDF Report Download ───────────────────────────────────────────────────────
+
+@router.get("/submissions/{submission_id}/report.pdf")
+async def download_report_pdf(
+    submission_id: uuid.UUID,
+    current_analyst: Analyst = Depends(get_current_analyst),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate and download the KYC/KYB report for a submission as a PDF.
+    The PDF contains real selectable text (not an image), generated from the
+    AI Markdown response using weasyprint.
+    """
+    import markdown as md_lib
+    import weasyprint
+
+    result = await db.execute(select(Submission).where(Submission.id == submission_id))
+    submission = result.scalar_one_or_none()
+
+    if not submission:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
+    if not submission.ai_response:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No report available for this submission")
+
+    # Convert Markdown → HTML (tables extension for the semaphore table)
+    html_body = md_lib.markdown(submission.ai_response, extensions=["tables", "extra"])
+
+    # Escape values that go into the HTML template
+    safe_provider = html_lib.escape(submission.provider_name or "Unknown")
+    safe_date = html_lib.escape(submission.created_at.strftime("%d/%m/%Y"))
+
+    full_html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page {{ size: A4; margin: 2cm 2.2cm; }}
+    body {{ font-family: "Liberation Sans", Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #1a1a1a; }}
+    .doc-header {{ border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 20px; }}
+    .doc-header h1 {{ font-size: 14pt; color: #4f46e5; margin: 0 0 4px 0; }}
+    .doc-header p {{ font-size: 9pt; color: #6b7280; margin: 0; }}
+    .page-footer {{ position: fixed; bottom: 0.8cm; right: 0; left: 0; font-size: 8pt; color: #9ca3af; text-align: right; padding-right: 2.2cm; border-top: 1px solid #e5e7eb; padding-top: 3px; }}
+    h1 {{ font-size: 13pt; font-weight: bold; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; margin: 20px 0 10px; }}
+    h2 {{ font-size: 12pt; font-weight: bold; margin: 16px 0 8px; color: #1f2937; }}
+    h3 {{ font-size: 11pt; font-weight: bold; margin: 12px 0 6px; color: #374151; }}
+    p {{ margin: 0 0 8px 0; }}
+    ul, ol {{ margin: 0 0 8px 18px; padding: 0; }}
+    li {{ margin-bottom: 3px; }}
+    hr {{ border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }}
+    table {{ width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 10pt; }}
+    th {{ background-color: #f3f4f6; font-weight: bold; text-align: left; padding: 6px 8px; border: 1px solid #d1d5db; font-size: 9pt; text-transform: uppercase; }}
+    td {{ padding: 5px 8px; border: 1px solid #d1d5db; vertical-align: top; }}
+    tr:nth-child(even) td {{ background-color: #f9fafb; }}
+    code {{ background: #f3f4f6; padding: 1px 4px; font-family: "Liberation Mono", monospace; font-size: 9pt; }}
+    blockquote {{ border-left: 3px solid #c7d2fe; margin: 0 0 8px 0; padding-left: 12px; color: #6b7280; font-style: italic; }}
+    strong {{ font-weight: bold; }}
+  </style>
+</head>
+<body>
+  <div class="doc-header">
+    <h1>Informe KYC/KYB — {safe_provider}</h1>
+    <p>Generat el {safe_date} · Tuio Partners</p>
+  </div>
+  <div class="page-footer">Informe KYC/KYB — {safe_provider} · {safe_date}</div>
+  {html_body}
+</body>
+</html>"""
+
+    # Run weasyprint in a thread pool — it's synchronous and would block the event loop
+    pdf_bytes = await asyncio.to_thread(
+        lambda: weasyprint.HTML(string=full_html).write_pdf()
+    )
+
+    # Build a safe ASCII filename (strip accents and special characters)
+    safe_name = re.sub(r"[^\w\s\-]", "", submission.provider_name or "").strip().replace(" ", "_")
+    filename = f"Informe_KYC_{safe_name}.pdf" if safe_name else "Informe_KYC.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

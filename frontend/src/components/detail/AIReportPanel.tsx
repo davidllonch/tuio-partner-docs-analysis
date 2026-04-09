@@ -1,11 +1,13 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { AlertCircle, Download, Loader2 } from 'lucide-react'
 import type { SubmissionStatus } from '../../lib/types'
+import { downloadReportPdf } from '../../lib/api'
 
 interface AIReportPanelProps {
+  submissionId: string
   status: SubmissionStatus
   aiResponse: string | null
   errorMessage: string | null
@@ -78,49 +80,16 @@ const md = {
 }
 
 
-export function AIReportPanel({ status, aiResponse, errorMessage, providerName }: AIReportPanelProps) {
-  const reportRef = useRef<HTMLDivElement>(null)
+export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, providerName }: AIReportPanelProps) {
   const [isGenerating, setIsGenerating] = useState(false)
 
   const handleDownloadPDF = async () => {
-    if (!reportRef.current || isGenerating) return
+    if (isGenerating) return
     setIsGenerating(true)
-
     try {
-      // Lazy-load the libraries only when needed (keeps initial bundle small)
-      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas'),
-      ])
-
-      // Render the report div to a canvas at 2× resolution for crisp text
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      })
-
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-
-      const pageW = pdf.internal.pageSize.getWidth()
-      const pageH = pdf.internal.pageSize.getHeight()
-      const margin = 12 // mm
-      const printW = pageW - margin * 2
-      const printH = (canvas.height * printW) / canvas.width
-
-      // Paginate: if the content is taller than one page, split across pages
-      let yOffset = 0
-      while (yOffset < printH) {
-        if (yOffset > 0) pdf.addPage()
-        pdf.addImage(imgData, 'PNG', margin, margin - yOffset, printW, printH)
-        yOffset += pageH - margin * 2
-      }
-
-      const safeName = (providerName ?? '').replace(/[^\w\s\-]/g, '').trim()
+      const safeName = (providerName ?? '').replace(/[^\w\s\-]/g, '').trim().replace(/\s+/g, '_')
       const filename = safeName ? `Informe_KYC_${safeName}.pdf` : 'Informe_KYC.pdf'
-      pdf.save(filename)
+      await downloadReportPdf(submissionId, filename)
     } finally {
       setIsGenerating(false)
     }
@@ -180,7 +149,7 @@ export function AIReportPanel({ status, aiResponse, errorMessage, providerName }
         )}
 
         {status === 'complete' && aiResponse && (
-          <div className="min-w-0" ref={reportRef}>
+          <div className="min-w-0">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={md}

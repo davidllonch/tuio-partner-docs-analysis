@@ -124,6 +124,7 @@ export function SubmissionDetailPage() {
 
               {/* AI analysis report */}
               <AIReportPanel
+                submissionId={submission.id}
                 status={submission.status}
                 aiResponse={submission.ai_response}
                 errorMessage={submission.error_message}

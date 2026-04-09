@@ -104,6 +104,22 @@ export async function reanalyseSubmission(
   return response.data
 }
 
+export async function downloadReportPdf(submissionId: string, filename: string): Promise<void> {
+  const response = await apiClient.get(
+    `/api/submissions/${submissionId}/report.pdf`,
+    { responseType: 'blob' }
+  )
+  const blob = new Blob([response.data], { type: 'application/pdf' })
+  const url = window.URL.createObjectURL(blob)
+  const anchor = window.document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  window.document.body.appendChild(anchor)
+  anchor.click()
+  window.document.body.removeChild(anchor)
+  window.URL.revokeObjectURL(url)
+}
+
 // --- Analysts ---
 
 export async function fetchAnalysts(): Promise<AnalystListItem[]> {
