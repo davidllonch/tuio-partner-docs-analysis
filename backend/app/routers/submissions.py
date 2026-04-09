@@ -173,7 +173,14 @@ async def _background_analyse(
             )
             db.add(analysis)
 
-            # Step 4: Send notification email (small, no full analysis)
+            # Step 4: Commit analysis + submission to DB first
+            submission.status = "complete"
+            submission.ai_response = ai_response
+            submission.ai_model_used = model_used
+            await db.commit()
+
+            # Step 5: Send notification email AFTER commit, so DB is consistent
+            # even if the email send fails
             logger.info(
                 "Background: sending notification email for submission %s", submission_id
             )
@@ -189,13 +196,7 @@ async def _background_analyse(
             )
             email_sent_at = datetime.now(timezone.utc)
             analysis.email_sent_at = email_sent_at
-
-            # Step 5: Mark submission as complete
-            submission.status = "complete"
-            submission.ai_response = ai_response
-            submission.ai_model_used = model_used
             submission.email_sent_at = email_sent_at
-
             await db.commit()
             logger.info("Background: submission %s completed successfully", submission_id)
 
@@ -206,7 +207,9 @@ async def _background_analyse(
                 exc,
                 exc_info=True,
             )
+            # Roll back any dirty state before attempting the error-state write
             try:
+                await db.rollback()
                 result = await db.execute(
                     select(Submission).where(Submission.id == submission_id)
                 )
@@ -260,6 +263,12 @@ async def create_submission(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="entity_type must be 'PF' (persona física) or 'PJ' (persona jurídica)",
+        )
+
+    if len(provider_name) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider_name must not exceed 255 characters",
         )
 
     if not files:
@@ -525,7 +534,7 @@ async def download_document(
         media_type=document.mime_type,
         headers={
             "Content-Disposition": (
-                f'attachment; filename="{document.original_filename}"'
+                f'attachment; filename="{document.original_filename.replace(chr(34), "_")}"'
             ),
             "Content-Length": str(document.size_bytes),
         },

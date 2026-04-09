@@ -1,3 +1,5 @@
+import asyncio
+import html
 import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -6,6 +8,26 @@ from email.mime.text import MIMEText
 from app.services.ai_analysis import PROVIDER_TYPE_DISPLAY
 
 logger = logging.getLogger(__name__)
+
+
+def _send_smtp(
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_password: str,
+    from_address: str,
+    recipient: str,
+    msg_string: str,
+) -> None:
+    """
+    Synchronous SMTP send. Runs in a thread pool via asyncio.to_thread()
+    so it does not block the async event loop.
+    """
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.ehlo()
+        server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.sendmail(from_address, [recipient], msg_string)
 
 
 async def send_submission_notification(
@@ -26,7 +48,13 @@ async def send_submission_notification(
     Keeping the email small avoids SMTP size rejections and keeps notifications clean.
     """
     provider_display = PROVIDER_TYPE_DISPLAY.get(provider_type, provider_type)
-    subject = f"Nueva documentación recibida – {provider_name}"
+
+    # Escape user-supplied values before embedding in HTML to prevent injection
+    safe_name = html.escape(provider_name)
+    safe_display = html.escape(provider_display)
+    safe_subject_name = provider_name[:200]  # cap subject line length
+
+    subject = f"Nueva documentación recibida – {safe_subject_name}"
 
     html_body = f"""
     <html>
@@ -35,11 +63,11 @@ async def send_submission_notification(
         <table style="border-collapse: collapse; width: 100%; margin-bottom: 20px;">
             <tr>
                 <td style="padding: 8px 0; color: #555; width: 160px;"><strong>Partner:</strong></td>
-                <td style="padding: 8px 0; color: #333;">{provider_name}</td>
+                <td style="padding: 8px 0; color: #333;">{safe_name}</td>
             </tr>
             <tr>
                 <td style="padding: 8px 0; color: #555;"><strong>Tipo de proveedor:</strong></td>
-                <td style="padding: 8px 0; color: #333;">{provider_display}</td>
+                <td style="padding: 8px 0; color: #333;">{safe_display}</td>
             </tr>
         </table>
         <p style="color: #555;">
@@ -65,13 +93,21 @@ async def send_submission_notification(
     msg["From"] = from_address
     msg["To"] = recipient
     msg.attach(MIMEText(html_body, "html", "utf-8"))
+    msg_string = msg.as_string()
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(from_address, [recipient], msg.as_string())
+        # Run the blocking SMTP call in a thread pool so it does not freeze
+        # the async event loop (and delay other concurrent requests)
+        await asyncio.to_thread(
+            _send_smtp,
+            smtp_host,
+            smtp_port,
+            smtp_user,
+            smtp_password,
+            from_address,
+            recipient,
+            msg_string,
+        )
         logger.info(
             "Submission notification email sent for provider '%s' to '%s'",
             provider_name,
