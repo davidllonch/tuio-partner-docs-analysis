@@ -154,6 +154,8 @@ Informe interno en español. Estructura:
 
 No inventes datos. Si algo no puede confirmarse, dilo. Sé prudente. Escribe de forma clara y orientada a negocio/compliance.
 
+El informe completo no debe superar los 8.000 caracteres en total. Si es necesario, sé más conciso en las observaciones, pero nunca omitas ningún requisito del análisis semáforo ni la conclusión operativa.
+
 ## 10. Proceso interno antes de redactar
 
 1. Clasifica PF o PJ
