@@ -110,7 +110,8 @@ export function AIReportPanel({ status, aiResponse, errorMessage, providerName }
   const handleDownloadPDF = () => {
     if (!reportRef.current) return
 
-    const title = providerName ? `Informe KYC — ${providerName}` : 'Informe KYC/KYB'
+    // Escape providerName before injecting into HTML to prevent XSS via crafted names
+    const safeName = (providerName ?? '').replace(/[<>"'&]/g, (c) => `&#${c.charCodeAt(0)};`)
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
@@ -119,12 +120,13 @@ export function AIReportPanel({ status, aiResponse, errorMessage, providerName }
       <html lang="es">
       <head>
         <meta charset="UTF-8" />
-        <title>${title}</title>
         <style>${PRINT_STYLES}</style>
       </head>
       <body>${reportRef.current.innerHTML}</body>
       </html>
     `)
+    // Set title via DOM property (safe — never parsed as HTML)
+    printWindow.document.title = safeName ? `Informe KYC — ${safeName}` : 'Informe KYC/KYB'
     printWindow.document.close()
 
     // Small delay to ensure styles are applied before the print dialog opens

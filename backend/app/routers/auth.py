@@ -86,7 +86,9 @@ async def get_me(current_analyst: Analyst = Depends(get_current_analyst)):
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+@_limiter.limit("5/minute")
 async def change_password(
+    request: Request,
     body: ChangePasswordRequest,
     current_analyst: Analyst = Depends(get_current_analyst),
     db: AsyncSession = Depends(get_db),

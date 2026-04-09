@@ -69,8 +69,9 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">Change Password</h2>
           <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={() => { if (!mutation.isPending) onClose() }}
+            disabled={mutation.isPending}
+            className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-30"
             aria-label="Close"
           >
             <X className="h-4 w-4" />

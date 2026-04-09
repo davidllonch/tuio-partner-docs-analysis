@@ -40,10 +40,13 @@ apiClient.interceptors.request.use((config) => {
 // Response interceptor: on 401 (unauthorized), clear the stored token and
 // send the user back to the login page. This handles expired/invalid tokens
 // automatically without needing to check manually in every component.
+// Exception: the login endpoint itself returns 401 for bad credentials —
+// we skip the redirect there so the LoginPage can handle the error normally.
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isLoginEndpoint = error.config?.url?.includes('/api/auth/login')
+    if (error.response?.status === 401 && !isLoginEndpoint) {
       clearToken()
       window.location.href = '/login'
     }

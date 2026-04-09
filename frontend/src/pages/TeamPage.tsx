@@ -178,7 +178,7 @@ export function TeamPage() {
               <div className="sm:col-span-3 flex gap-2 justify-end">
                 <button
                   type="button"
-                  onClick={() => { setShowAddForm(false); setFormError(null) }}
+                  onClick={() => { setShowAddForm(false); setFormError(null); setPassword('') }}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
