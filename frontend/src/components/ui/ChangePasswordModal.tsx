@@ -21,11 +21,11 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
   // Close on Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !mutation.isPending) onClose()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, [onClose, mutation.isPending])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,7 +62,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
     /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => { if (e.target === e.currentTarget && !mutation.isPending) onClose() }}
     >
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-200">
         {/* Header */}

@@ -1,6 +1,8 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,9 +16,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Rate limiter for the login endpoint — prevents brute-force password attacks.
+# Allows 10 login attempts per minute per IP address.
+_limiter = Limiter(key_func=get_remote_address)
+
 
 @router.post("/login", response_model=TokenResponse)
+@_limiter.limit("10/minute")
 async def login(
+    request: Request,
     body: LoginRequest,
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -44,15 +52,16 @@ async def login(
         logger.warning("Login attempt for unknown email: %s", body.email)
         raise invalid_credentials
 
+    # Check is_active BEFORE verifying the password.
+    # If we checked after, a correct password on an inactive account would return
+    # a different error — revealing that the password is valid, which is an info leak.
+    if not analyst.is_active:
+        logger.warning("Login attempt for inactive account: %s", body.email)
+        raise invalid_credentials
+
     if not verify_password(body.password, analyst.hashed_password):
         logger.warning("Failed login attempt for email: %s", body.email)
         raise invalid_credentials
-
-    if not analyst.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive",
-        )
 
     token = create_access_token(
         data={"sub": str(analyst.id)},

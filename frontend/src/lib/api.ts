@@ -58,8 +58,8 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
   return response.data
 }
 
-export async function fetchCurrentAnalyst() {
-  const response = await apiClient.get('/api/auth/me')
+export async function fetchCurrentAnalyst(): Promise<Analyst> {
+  const response = await apiClient.get<Analyst>('/api/auth/me')
   return response.data
 }
 

@@ -45,6 +45,7 @@ export function TeamPage() {
           setShowAddForm(false)
         },
         onError: (error) => {
+          setPassword('')
           if (axios.isAxiosError(error) && error.response?.status === 409) {
             setFormError('An analyst with this email already exists.')
           } else {
