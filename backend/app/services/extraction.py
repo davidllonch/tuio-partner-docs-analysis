@@ -44,14 +44,17 @@ def _extract_pdf_text(file_path: str) -> Optional[str]:
 
 
 def _pdf_pages_to_images(
-    file_path: str, max_pages: int = 5, dpi: int = 200
+    file_path: str, max_pages: int = 3, dpi: int = 150
 ) -> list[tuple[str, str]]:
     """
-    Render PDF pages as base64-encoded PNG images.
+    Render PDF pages as base64-encoded JPEG images.
 
     Used for scanned PDFs (passports, ID cards, certificates) where text extraction
     returns too little content. Sending the rendered page images to Claude Vision
     gives much better analysis quality than OCR text.
+
+    JPEG at quality 85 is used instead of PNG to keep request sizes small —
+    PNG at 200 DPI can exceed Anthropic's request size limit with multi-page docs.
 
     Returns a list of (base64_string, mime_type) tuples, one per page.
     """
@@ -68,12 +71,13 @@ def _pdf_pages_to_images(
 
         for page_num in range(pages_to_process):
             page = doc[page_num]
-            # 200 DPI: good quality for document analysis without excessive file size
+            # 150 DPI + JPEG quality 85: good readability for Claude Vision
+            # while keeping each page well under 1 MB
             mat = fitz.Matrix(dpi / 72, dpi / 72)
             pix = page.get_pixmap(matrix=mat)
-            img_bytes = pix.tobytes("png")
+            img_bytes = pix.tobytes("jpeg", jpg_quality=85)
             b64 = base64.b64encode(img_bytes).decode("utf-8")
-            images.append((b64, "image/png"))
+            images.append((b64, "image/jpeg"))
 
         doc.close()
         return images
