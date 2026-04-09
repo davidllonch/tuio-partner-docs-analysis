@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { RefreshCw, Loader2 } from 'lucide-react'
-import { useReanalyse } from '../../hooks/useSubmissions'
+import { useReanalyse, useModels } from '../../hooks/useSubmissions'
 import { useToast } from '../ui/Toast'
 import type { ProviderType, Analysis } from '../../lib/types'
 import { PROVIDER_TYPE_LABELS } from '../../lib/types'
@@ -34,17 +34,30 @@ export function ReanalysePanel({
   analyses,
 }: ReanalysePanelProps) {
   const [selectedType, setSelectedType] = useState<ProviderType>(currentProviderType)
+  const [selectedModel, setSelectedModel] = useState<string>('')
   const { toast } = useToast()
   const mutation = useReanalyse(submissionId)
+  const { data: modelsData, isLoading: modelsLoading } = useModels()
+  const models = modelsData?.models ?? []
+
+  // Pre-select the first (most recent) model once the list loads
+  useEffect(() => {
+    if (models.length > 0 && !selectedModel) {
+      setSelectedModel(models[0].id)
+    }
+  }, [models, selectedModel])
 
   const handleReanalyse = () => {
     mutation.mutate(
-      { provider_type: selectedType },
+      {
+        provider_type: selectedType,
+        model: selectedModel || undefined,
+      },
       {
         onSuccess: () => {
           toast({
             title: 'Analysis complete',
-            description: 'Email sent to legal@tuio.com.',
+            description: 'Email sent to david.llonch@tuio.com.',
             variant: 'success',
           })
         },
@@ -68,7 +81,7 @@ export function ReanalysePanel({
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">Re-run Analysis</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Use this if the partner selected the wrong provider type.
+            Use this if the partner selected the wrong provider type, or to use a different AI model.
           </p>
         </div>
 
@@ -102,9 +115,37 @@ export function ReanalysePanel({
             </select>
           </div>
 
+          <div>
+            <label
+              htmlFor="reanalyse-model"
+              className="block text-xs font-medium text-gray-700 mb-1"
+            >
+              AI Model
+            </label>
+            <select
+              id="reanalyse-model"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={mutation.isPending || modelsLoading || models.length === 0}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60"
+            >
+              {modelsLoading && (
+                <option value="">Loading models…</option>
+              )}
+              {!modelsLoading && models.length === 0 && (
+                <option value="">No models available</option>
+              )}
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.display_name || m.id}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             onClick={handleReanalyse}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || modelsLoading || models.length === 0}
             className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {mutation.isPending ? (

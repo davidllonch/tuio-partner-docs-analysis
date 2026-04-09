@@ -399,6 +399,37 @@ async def create_submission(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/models")
+async def list_models(
+    current_analyst: Analyst = Depends(get_current_analyst),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Return the list of available Claude models from Anthropic.
+    Analysts use this to choose which model to use for re-analysis.
+    """
+    import anthropic as anthropic_lib
+
+    client = anthropic_lib.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    try:
+        models_page = client.models.list()
+        claude_models = [
+            {
+                "id": m.id,
+                "display_name": getattr(m, "display_name", m.id),
+            }
+            for m in models_page.data
+            if m.id.startswith("claude-")
+        ]
+        return {"models": claude_models}
+    except Exception as exc:
+        logger.error("Failed to fetch models from Anthropic: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not retrieve model list from Anthropic.",
+        )
+
+
 @router.get("/submissions", response_model=SubmissionListResponse)
 async def list_submissions(
     page: int = 1,
@@ -611,6 +642,7 @@ async def reanalyse_submission(
             extracted_docs=extracted_docs,
             anthropic_api_key=settings.ANTHROPIC_API_KEY,
             openai_api_key=settings.OPENAI_API_KEY,
+            model=body.model or "claude-sonnet-4-6",
         )
 
         analysis_id = uuid.uuid4()

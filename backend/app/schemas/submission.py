@@ -76,6 +76,7 @@ class SubmissionListResponse(BaseModel):
 
 class ReanalyseRequest(BaseModel):
     provider_type: str
+    model: Optional[str] = None  # If None, uses the default model
 
     @field_validator("provider_type")
     @classmethod

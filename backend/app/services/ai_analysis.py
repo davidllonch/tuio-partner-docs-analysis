@@ -142,7 +142,7 @@ Dividir en: Bloque A (Crítico), Bloque B (Importante), Bloque C (Formal/complem
 
 ## 7. Formato de salida obligatorio
 
-Email interno en español. Estructura:
+Informe interno en español. Estructura:
 1. Asunto
 2. Resumen ejecutivo (3-6 líneas)
 3. Documentación recibida identificada
@@ -261,9 +261,13 @@ def _convert_to_openai_content(anthropic_content: list[dict]) -> list[dict]:
     return openai_content
 
 
+DEFAULT_MODEL = "claude-sonnet-4-6"
+
+
 async def _call_anthropic(
     content_list: list[dict],
     anthropic_api_key: str,
+    model: str = DEFAULT_MODEL,
 ) -> tuple[str, str]:
     """
     Call Anthropic's Claude API with the KYC system prompt and document content.
@@ -271,7 +275,7 @@ async def _call_anthropic(
     """
     client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
     response = await client.messages.create(
-        model="claude-sonnet-4-6",
+        model=model,
         max_tokens=4096,
         system=[
             {
@@ -282,7 +286,7 @@ async def _call_anthropic(
         ],
         messages=[{"role": "user", "content": content_list}],
     )
-    return response.content[0].text, "claude-sonnet-4-6"
+    return response.content[0].text, model
 
 
 async def _call_openai(
@@ -315,6 +319,7 @@ async def run_analysis(
     extracted_docs: list[ExtractedDoc],
     anthropic_api_key: str,
     openai_api_key: str,
+    model: str = DEFAULT_MODEL,
 ) -> tuple[str, str]:
     """
     Run KYC/KYB AI analysis on the provided documents.
@@ -337,7 +342,7 @@ async def run_analysis(
             logger.info(
                 "Calling Anthropic API (attempt %d) for provider %s", attempt + 1, provider_name
             )
-            result = await _call_anthropic(content_list, anthropic_api_key)
+            result = await _call_anthropic(content_list, anthropic_api_key, model=model)
             logger.info("Anthropic API call succeeded on attempt %d", attempt + 1)
             return result
         except anthropic.RateLimitError as exc:

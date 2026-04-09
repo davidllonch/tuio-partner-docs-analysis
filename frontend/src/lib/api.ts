@@ -7,6 +7,7 @@ import type {
   LoginResponse,
   ReanalyseRequest,
   ReanalyseResponse,
+  ModelOption,
 } from './types'
 
 const baseURL = import.meta.env.VITE_API_URL
@@ -93,6 +94,13 @@ export async function reanalyseSubmission(
     `/api/submissions/${id}/reanalyse`,
     data
   )
+  return response.data
+}
+
+// --- Models ---
+
+export async function fetchModels(): Promise<{ models: ModelOption[] }> {
+  const response = await apiClient.get<{ models: ModelOption[] }>('/api/models')
   return response.data
 }
 

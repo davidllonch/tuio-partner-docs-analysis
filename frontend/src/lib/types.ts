@@ -74,6 +74,12 @@ export interface LoginResponse {
 
 export interface ReanalyseRequest {
   provider_type: ProviderType
+  model?: string
+}
+
+export interface ModelOption {
+  id: string
+  display_name: string
 }
 
 // Human-readable labels for provider types

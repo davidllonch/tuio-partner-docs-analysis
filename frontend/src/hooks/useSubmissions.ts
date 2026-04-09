@@ -3,8 +3,9 @@ import {
   fetchSubmissions,
   fetchSubmission,
   reanalyseSubmission,
+  fetchModels,
 } from '../lib/api'
-import type { PaginatedSubmissions, SubmissionDetail, ReanalyseRequest, ReanalyseResponse } from '../lib/types'
+import type { PaginatedSubmissions, SubmissionDetail, ReanalyseRequest, ReanalyseResponse, ModelOption } from '../lib/types'
 
 export function useSubmissions(page: number = 1, size: number = 20) {
   return useQuery<PaginatedSubmissions>({
@@ -27,6 +28,14 @@ export function useSubmission(id: string) {
       return data.status === 'pending' || data.status === 'analysing' ? 10_000 : false
     },
     staleTime: 1000 * 10,
+  })
+}
+
+export function useModels() {
+  return useQuery<{ models: ModelOption[] }>({
+    queryKey: ['models'],
+    queryFn: fetchModels,
+    staleTime: 1000 * 60 * 5, // 5 minutes — model list rarely changes
   })
 }
 
