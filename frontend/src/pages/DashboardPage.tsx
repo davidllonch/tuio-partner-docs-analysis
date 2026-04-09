@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import { LogOut, RefreshCw, FileText } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { LogOut, RefreshCw, FileText, KeyRound } from 'lucide-react'
 import { useSubmissions } from '../hooks/useSubmissions'
 import { useCurrentAnalyst, useLogout } from '../hooks/useAuth'
 import { SubmissionTable } from '../components/dashboard/SubmissionTable'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import { ChangePasswordModal } from '../components/ui/ChangePasswordModal'
 
 export function DashboardPage() {
   const [page, setPage] = useState(1)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const PAGE_SIZE = 20
 
   const { data, isLoading, isError, refetch, isFetching } = useSubmissions(page, PAGE_SIZE)
@@ -19,19 +22,43 @@ export function DashboardPage() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-                <span className="text-white text-sm font-bold">T</span>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+                  <span className="text-white text-sm font-bold">T</span>
+                </div>
+                <h1 className="text-base font-semibold text-gray-900">KYC/KYB Review</h1>
               </div>
-              <h1 className="text-base font-semibold text-gray-900">KYC/KYB Review</h1>
+              <nav className="hidden sm:flex items-center gap-1">
+                <Link
+                  to="/dashboard"
+                  className="px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg"
+                >
+                  Submissions
+                </Link>
+                <Link
+                  to="/team"
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Team
+                </Link>
+              </nav>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               {analyst && (
                 <span className="hidden sm:block text-sm text-gray-600">
                   {analyst.full_name}
                 </span>
               )}
+              <button
+                onClick={() => setShowPasswordModal(true)}
+                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                aria-label="Change password"
+              >
+                <KeyRound className="h-4 w-4" />
+                <span className="hidden sm:inline">Change password</span>
+              </button>
               <button
                 onClick={logout}
                 className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
@@ -99,6 +126,10 @@ export function DashboardPage() {
           />
         )}
       </main>
+
+      {showPasswordModal && (
+        <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />
+      )}
     </div>
   )
 }

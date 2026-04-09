@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.jwt import verify_password, create_access_token, get_current_analyst
+from app.auth.jwt import verify_password, hash_password, create_access_token, get_current_analyst
 from app.config import get_settings, Settings
 from app.database import get_db
 from app.models.analyst import Analyst
-from app.schemas.auth import LoginRequest, TokenResponse, AnalystOut
+from app.schemas.auth import LoginRequest, TokenResponse, AnalystOut, ChangePasswordRequest
 
 logger = logging.getLogger(__name__)
 
@@ -74,3 +74,24 @@ async def login(
 async def get_me(current_analyst: Analyst = Depends(get_current_analyst)):
     """Return the currently authenticated analyst's profile."""
     return AnalystOut.model_validate(current_analyst)
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_analyst: Analyst = Depends(get_current_analyst),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Allow an authenticated analyst to change their own password.
+    Requires the current password as verification before accepting the new one.
+    """
+    if not verify_password(body.current_password, current_analyst.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    current_analyst.hashed_password = hash_password(body.new_password)
+    await db.commit()
+    logger.info("Analyst %s changed their password", current_analyst.email)

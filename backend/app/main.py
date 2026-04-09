@@ -10,6 +10,7 @@ from slowapi.util import get_remote_address
 from app.config import get_settings
 from app.routers import auth as auth_router
 from app.routers import submissions as submissions_router
+from app.routers import analysts as analysts_router
 from app.services.cleanup import create_cleanup_scheduler
 
 # Configure structured logging for the entire application
@@ -92,6 +93,7 @@ app.add_middleware(
 # ── Register API routers ─────────────────────────────────────────────────────
 app.include_router(auth_router.router, prefix="/api")
 app.include_router(submissions_router.router, prefix="/api")
+app.include_router(analysts_router.router, prefix="/api")
 
 
 # ── Health check (public, no auth required) ──────────────────────────────────

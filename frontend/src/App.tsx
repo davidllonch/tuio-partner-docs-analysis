@@ -7,6 +7,7 @@ import { ThankYouPage } from './pages/ThankYouPage'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SubmissionDetailPage } from './pages/SubmissionDetailPage'
+import { TeamPage } from './pages/TeamPage'
 
 // QueryClient is the "state manager" for all API data fetching.
 // It automatically handles caching, refetching, and loading states.
@@ -36,6 +37,7 @@ export function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
+              <Route path="/team" element={<TeamPage />} />
             </Route>
 
             {/* Catch-all: redirect unknown URLs to the partner form */}

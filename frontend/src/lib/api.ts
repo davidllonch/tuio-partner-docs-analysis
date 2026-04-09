@@ -8,6 +8,10 @@ import type {
   ReanalyseRequest,
   ReanalyseResponse,
   ModelOption,
+  AnalystListItem,
+  CreateAnalystRequest,
+  ChangePasswordRequest,
+  Analyst,
 } from './types'
 
 const baseURL = import.meta.env.VITE_API_URL
@@ -95,6 +99,22 @@ export async function reanalyseSubmission(
     data
   )
   return response.data
+}
+
+// --- Analysts ---
+
+export async function fetchAnalysts(): Promise<AnalystListItem[]> {
+  const response = await apiClient.get<AnalystListItem[]>('/api/analysts')
+  return response.data
+}
+
+export async function createAnalyst(data: CreateAnalystRequest): Promise<Analyst> {
+  const response = await apiClient.post<Analyst>('/api/analysts', data)
+  return response.data
+}
+
+export async function changePassword(data: ChangePasswordRequest): Promise<void> {
+  await apiClient.post('/api/auth/change-password', data)
 }
 
 // --- Models ---

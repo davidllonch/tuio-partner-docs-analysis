@@ -82,6 +82,25 @@ export interface ModelOption {
   display_name: string
 }
 
+export interface AnalystListItem {
+  id: string
+  email: string
+  full_name: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface CreateAnalystRequest {
+  email: string
+  full_name: string
+  password: string
+}
+
+export interface ChangePasswordRequest {
+  current_password: string
+  new_password: string
+}
+
 // Human-readable labels for provider types
 export const PROVIDER_TYPE_LABELS: Record<ProviderType, string> = {
   correduria_seguros: 'Correduría de Seguros',
