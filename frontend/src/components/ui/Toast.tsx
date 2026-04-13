@@ -28,7 +28,7 @@ const VARIANT_STYLES: Record<ToastVariant, { container: string; icon: ReactNode 
   },
   info: {
     container: 'border-gray-200 bg-white',
-    icon: <Info className="h-5 w-5 text-indigo-600 flex-shrink-0" />,
+    icon: <Info className="h-5 w-5 text-primary-600 flex-shrink-0" />,
   },
 }
 

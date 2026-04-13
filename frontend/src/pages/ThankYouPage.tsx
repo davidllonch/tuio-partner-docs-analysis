@@ -41,7 +41,7 @@ export function ThankYouPage() {
 
         <div className="mt-8 inline-flex items-center gap-2 text-sm text-gray-500 bg-white rounded-full px-5 py-2.5 border border-gray-200 shadow-sm">
           <span
-            className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"
+            className="h-2 w-2 rounded-full bg-primary-500 animate-pulse"
             aria-hidden="true"
           />
           Redirecting to tuio.com in{' '}
@@ -53,7 +53,7 @@ export function ThankYouPage() {
           Not redirected?{' '}
           <a
             href={REDIRECT_URL}
-            className="text-indigo-600 hover:text-indigo-800 underline"
+            className="text-primary-600 hover:text-primary-800 underline"
           >
             Click here
           </a>

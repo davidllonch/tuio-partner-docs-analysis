@@ -99,7 +99,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     required
                     autoFocus
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                   <button
                     type="button"
@@ -123,7 +123,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     placeholder="Minimum 8 characters"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-gray-400"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder-gray-400"
                   />
                   <button
                     type="button"
@@ -145,7 +145,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
 
@@ -158,7 +158,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
               <button
                 type="submit"
                 disabled={mutation.isPending}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 Save new password

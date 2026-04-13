@@ -32,10 +32,7 @@ export function SubmissionDetailPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-                <span className="text-white text-sm font-bold">T</span>
-              </div>
-              <h1 className="text-base font-semibold text-gray-900">KYC/KYB Review</h1>
+              <img src="/logo-tuio.png" alt="Tuio" className="h-8" />
             </div>
 
             <div className="flex items-center gap-4">
@@ -62,7 +59,7 @@ export function SubmissionDetailPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <Link
             to="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-indigo-600 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Dashboard

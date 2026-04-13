@@ -105,7 +105,7 @@ export function ReanalysePanel({
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value as ProviderType)}
               disabled={mutation.isPending}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-60"
             >
               {PROVIDER_TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -127,7 +127,7 @@ export function ReanalysePanel({
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               disabled={mutation.isPending || modelsLoading || models.length === 0}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-60"
             >
               {modelsLoading && (
                 <option value="">Loading models…</option>
@@ -146,7 +146,7 @@ export function ReanalysePanel({
           <button
             onClick={handleReanalyse}
             disabled={mutation.isPending || modelsLoading || models.length === 0}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {mutation.isPending ? (
               <>
@@ -201,7 +201,7 @@ export function ReanalysePanel({
                       <span
                         className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                           analysis.triggered_by === 'analyst'
-                            ? 'bg-indigo-100 text-indigo-700'
+                            ? 'bg-primary-100 text-primary-700'
                             : 'bg-gray-100 text-gray-600'
                         }`}
                       >

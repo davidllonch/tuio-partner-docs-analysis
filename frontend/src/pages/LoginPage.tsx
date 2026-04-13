@@ -54,9 +54,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo / branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-12 w-12 rounded-xl bg-indigo-600 items-center justify-center mb-4">
-            <span className="text-white text-lg font-bold">T</span>
-          </div>
+          <img src="/logo-tuio.png" alt="Tuio" className="h-14 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900">Analyst Login</h1>
           <p className="text-sm text-gray-500 mt-1">
             Sign in to access the KYC/KYB review dashboard
@@ -90,7 +88,7 @@ export function LoginPage() {
                 className={`
                   w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900
                   placeholder-gray-400 shadow-sm transition-colors
-                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                  focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
                   ${errors.email ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}
                 `}
                 {...register('email')}
@@ -118,7 +116,7 @@ export function LoginPage() {
                   className={`
                     w-full rounded-lg border px-3 py-2.5 pr-10 text-sm text-gray-900
                     placeholder-gray-400 shadow-sm transition-colors
-                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                    focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
                     ${errors.password ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}
                   `}
                   {...register('password')}
@@ -146,7 +144,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loginMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loginMutation.isPending && (
                 <Loader2 className="h-4 w-4 animate-spin" />

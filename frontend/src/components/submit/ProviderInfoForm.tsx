@@ -75,7 +75,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
           className={`
             w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900
             placeholder-gray-400 shadow-sm transition-colors
-            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+            focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
             ${errors.provider_name ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}
           `}
           {...register('provider_name')}
@@ -100,7 +100,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
           className={`
             w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900
             shadow-sm transition-colors bg-white
-            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+            focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
             ${errors.provider_type ? 'border-red-400 bg-red-50' : 'border-gray-300'}
           `}
           {...register('provider_type')}
@@ -134,7 +134,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
                   relative flex cursor-pointer rounded-lg border p-4 transition-colors
                   ${
                     isSelected
-                      ? 'border-indigo-600 bg-indigo-50'
+                      ? 'border-primary-600 bg-primary-50'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }
                 `}
@@ -148,21 +148,21 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
                 <div>
                   <p
                     className={`text-sm font-medium ${
-                      isSelected ? 'text-indigo-900' : 'text-gray-900'
+                      isSelected ? 'text-primary-900' : 'text-gray-900'
                     }`}
                   >
                     {opt.label}
                   </p>
                   <p
                     className={`text-xs mt-0.5 ${
-                      isSelected ? 'text-indigo-600' : 'text-gray-500'
+                      isSelected ? 'text-primary-600' : 'text-gray-500'
                     }`}
                   >
                     {opt.description}
                   </p>
                 </div>
                 {isSelected && (
-                  <span className="absolute top-2 right-2 h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center">
+                  <span className="absolute top-2 right-2 h-5 w-5 rounded-full bg-primary-600 flex items-center justify-center">
                     <svg
                       className="h-3 w-3 text-white"
                       fill="currentColor"
@@ -199,7 +199,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
           className={`
             w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900
             placeholder-gray-400 shadow-sm transition-colors
-            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+            focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
             ${errors.country ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}
           `}
           {...register('country')}
@@ -213,7 +213,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
 
       <button
         type="submit"
-        className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+        className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors"
       >
         Next
         <svg

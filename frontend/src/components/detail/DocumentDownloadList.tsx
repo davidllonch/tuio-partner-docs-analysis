@@ -69,7 +69,7 @@ export function DocumentDownloadList({
                 onClick={() => handleDownload(doc)}
                 disabled={downloading[doc.id]}
                 aria-label={`Download ${doc.original_filename}`}
-                className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {downloading[doc.id] ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />

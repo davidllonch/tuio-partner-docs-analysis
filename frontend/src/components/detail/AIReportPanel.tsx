@@ -50,7 +50,7 @@ const md = {
   ),
   hr: () => <hr className="border-gray-200 my-5" />,
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote className="border-l-4 border-indigo-200 pl-4 italic text-gray-600 mb-3 text-sm">
+    <blockquote className="border-l-4 border-primary-200 pl-4 italic text-gray-600 mb-3 text-sm">
       {children}
     </blockquote>
   ),
@@ -117,7 +117,7 @@ export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, 
           <button
             onClick={handleDownloadPDF}
             disabled={isGenerating}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isGenerating
               ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generant…</>

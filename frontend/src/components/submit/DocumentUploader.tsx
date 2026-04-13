@@ -110,11 +110,11 @@ export function DocumentUploader({
         {...getRootProps()}
         className={`
           relative rounded-xl border-2 border-dashed p-8 text-center cursor-pointer
-          transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500
+          transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500
           ${
             isDragActive
-              ? 'border-indigo-400 bg-indigo-50'
-              : 'border-gray-300 bg-gray-50 hover:border-indigo-400 hover:bg-indigo-50'
+              ? 'border-primary-400 bg-primary-50'
+              : 'border-gray-300 bg-gray-50 hover:border-primary-400 hover:bg-primary-50'
           }
         `}
         tabIndex={0}
@@ -124,7 +124,7 @@ export function DocumentUploader({
         <input {...getInputProps()} />
         <Upload
           className={`mx-auto h-10 w-10 mb-3 ${
-            isDragActive ? 'text-indigo-500' : 'text-gray-400'
+            isDragActive ? 'text-primary-500' : 'text-gray-400'
           }`}
         />
         <p className="text-sm font-medium text-gray-700">
@@ -183,7 +183,7 @@ export function DocumentUploader({
                     className={`
                       w-full rounded-md border px-2.5 py-1.5 text-sm
                       placeholder-gray-400 transition-colors
-                      focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
                       ${
                         entry.label.trim() === ''
                           ? 'border-amber-300 bg-amber-50'
@@ -231,7 +231,7 @@ export function DocumentUploader({
           type="button"
           onClick={onBack}
           disabled={isSubmitting}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -252,7 +252,7 @@ export function DocumentUploader({
           type="button"
           onClick={onSubmit}
           disabled={!canSubmit}
-          className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Send Documentation
         </button>

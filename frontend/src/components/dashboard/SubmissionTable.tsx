@@ -99,7 +99,7 @@ export function SubmissionTable({
                   <td className="px-4 py-3 whitespace-nowrap">
                     <Link
                       to={`/submissions/${item.id}`}
-                      className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                      className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-800 transition-colors"
                     >
                       View
                       <ChevronRight className="h-3.5 w-3.5" />

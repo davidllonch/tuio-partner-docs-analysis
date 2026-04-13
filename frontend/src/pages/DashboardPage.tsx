@@ -24,15 +24,12 @@ export function DashboardPage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">T</span>
-                </div>
-                <h1 className="text-base font-semibold text-gray-900">KYC/KYB Review</h1>
+                <img src="/logo-tuio.png" alt="Tuio" className="h-8" />
               </div>
               <nav className="hidden sm:flex items-center gap-1">
                 <Link
                   to="/dashboard"
-                  className="px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg"
+                  className="px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg"
                 >
                   Submissions
                 </Link>
@@ -86,7 +83,7 @@ export function DashboardPage() {
             onClick={() => refetch()}
             disabled={isFetching}
             aria-label="Refresh submissions"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 transition-colors disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 transition-colors disabled:opacity-60"
           >
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh
