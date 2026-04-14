@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 import type { ProviderType, EntityType } from '../../lib/types'
 
 const schema = z.object({
@@ -42,6 +43,7 @@ const ENTITY_TYPE_OPTIONS: { value: EntityType; label: string; description: stri
   ]
 
 export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormProps) {
+  const { t } = useTranslation()
   const {
     register,
     handleSubmit,
@@ -65,7 +67,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
           htmlFor="provider_name"
           className="block text-sm font-medium text-gray-700 mb-1"
         >
-          Provider Name <span className="text-red-500">*</span>
+          {t('submit.providerName')} <span className="text-red-500">*</span>
         </label>
         <input
           id="provider_name"
@@ -93,7 +95,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
           htmlFor="provider_type"
           className="block text-sm font-medium text-gray-700 mb-1"
         >
-          Provider Type <span className="text-red-500">*</span>
+          {t('submit.providerType')} <span className="text-red-500">*</span>
         </label>
         <select
           id="provider_type"
@@ -122,7 +124,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
       {/* Entity Type */}
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-2">
-          Entity Type <span className="text-red-500">*</span>
+          {t('submit.entityType')} <span className="text-red-500">*</span>
         </span>
         <div className="grid grid-cols-2 gap-3">
           {ENTITY_TYPE_OPTIONS.map((opt) => {
@@ -189,7 +191,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
           htmlFor="country"
           className="block text-sm font-medium text-gray-700 mb-1"
         >
-          Country of Domicile <span className="text-red-500">*</span>
+          {t('submit.country')} <span className="text-red-500">*</span>
         </label>
         <input
           id="country"

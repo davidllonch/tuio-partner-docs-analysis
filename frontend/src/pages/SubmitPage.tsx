@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ProviderInfoForm, type ProviderInfoFormValues } from '../components/submit/ProviderInfoForm'
 import { DocumentUploader, type FileEntry } from '../components/submit/DocumentUploader'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
 import { createSubmission } from '../lib/api'
 import { AlertCircle } from 'lucide-react'
 
@@ -15,6 +17,7 @@ export function SubmitPage() {
   const [files, setFiles] = useState<FileEntry[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const { t } = useTranslation()
 
   const handleInfoSubmit = (values: ProviderInfoFormValues) => {
     setProviderInfo(values)
@@ -52,11 +55,12 @@ export function SubmitPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="relative min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
           <img src="/logo-tuio.png" alt="Tuio" className="h-8" />
+          <LanguageSwitcher />
         </div>
       </header>
 
@@ -68,10 +72,10 @@ export function SubmitPage() {
             {/* Card header */}
             <div className="px-8 pt-8 pb-6 border-b border-gray-100">
               <h1 className="text-xl font-bold text-gray-900">
-                Partner Documentation Submission
+                {t('submit.title')}
               </h1>
               <p className="text-sm text-gray-500 mt-1">
-                Please provide the required information and documents for KYC/KYB compliance review.
+                {t('submit.subtitle')}
               </p>
 
               {/* Step indicator */}
@@ -102,7 +106,7 @@ export function SubmitPage() {
                       step === 1 ? 'text-primary-600' : 'text-gray-500'
                     }`}
                   >
-                    Provider Information
+                    {t('submit.providerName')}
                   </span>
                 </div>
 
@@ -124,7 +128,7 @@ export function SubmitPage() {
                       step === 2 ? 'text-primary-600' : 'text-gray-500'
                     }`}
                   >
-                    Documentation
+                    {t('submit.documents')}
                   </span>
                 </div>
               </div>
@@ -182,7 +186,7 @@ export function SubmitPage() {
         >
           <LoadingSpinner size="lg" />
           <p className="mt-5 text-base font-semibold text-gray-800">
-            Sending your documentation…
+            {t('submit.submitting')}
           </p>
         </div>
       )}

@@ -1,0 +1,126 @@
+{
+  "nav": {
+    "submissions": "Submissions",
+    "team": "Team"
+  },
+  "auth": {
+    "title": "Analyst Login",
+    "subtitle": "Sign in to access the KYC/KYB review dashboard",
+    "email": "Email address",
+    "password": "Password",
+    "submit": "Sign in",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "errorInvalid": "Incorrect email or password. Please try again.",
+    "errorGeneric": "Unable to sign in. Please try again later.",
+    "changePassword": "Change password",
+    "logout": "Log out"
+  },
+  "dashboard": {
+    "title": "Submissions",
+    "subtitle": "All partner documentation submissions, newest first",
+    "refresh": "Refresh",
+    "errorTitle": "Failed to load submissions",
+    "errorSubtitle": "Check your connection and try refreshing.",
+    "tryAgain": "Try again",
+    "noSubmissions": "No submissions yet",
+    "noSubmissionsSubtitle": "Partner submissions will appear here once received."
+  },
+  "submission": {
+    "status": {
+      "pending": "Pending",
+      "analysing": "Analysing",
+      "complete": "Complete",
+      "error": "Error"
+    },
+    "table": {
+      "provider": "Provider",
+      "type": "Type",
+      "entity": "Entity",
+      "country": "Country",
+      "date": "Date",
+      "status": "Status"
+    },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "showing": "Showing",
+      "of": "of",
+      "results": "results"
+    }
+  },
+  "detail": {
+    "back": "Back to submissions",
+    "documents": "Documents",
+    "aiReport": "AI Report",
+    "reanalyse": "Re-analyse",
+    "downloadPdf": "Download PDF",
+    "generatingPdf": "Generating...",
+    "pdfError": "Download failed",
+    "pdfErrorDesc": "Could not generate the PDF report. Please try again.",
+    "noReport": "No report available yet.",
+    "noReportSubtitle": "The AI analysis will appear here once complete.",
+    "analysing": "Analysis in progress…",
+    "errorReport": "Analysis failed",
+    "reanalyseTitle": "Re-analyse submission",
+    "reanalyseModel": "Model",
+    "reanalyseType": "Provider type",
+    "reanalyseSubmit": "Run analysis",
+    "reanalyseRunning": "Running…",
+    "reanalyseSuccess": "Analysis complete",
+    "noDocuments": "No documents attached."
+  },
+  "team": {
+    "title": "Team",
+    "subtitle": "Manage analyst accounts",
+    "name": "Name",
+    "email": "Email",
+    "joined": "Joined",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "you": "you",
+    "addAnalyst": "Add analyst",
+    "fullName": "Full name",
+    "password": "Password",
+    "cancel": "Cancel",
+    "create": "Create analyst",
+    "creating": "Creating…",
+    "errorDuplicate": "An analyst with this email already exists.",
+    "errorGeneric": "Could not create analyst. Please try again."
+  },
+  "changePassword": {
+    "title": "Change password",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "submit": "Update password",
+    "submitting": "Updating…",
+    "success": "Password updated successfully",
+    "errorWrong": "Current password is incorrect.",
+    "errorMismatch": "New passwords do not match.",
+    "errorShort": "Password must be at least 8 characters.",
+    "errorGeneric": "Could not update password. Please try again."
+  },
+  "submit": {
+    "title": "Partner Documentation",
+    "subtitle": "Submit your compliance documents for review",
+    "providerName": "Company name",
+    "providerType": "Provider type",
+    "entityType": "Entity type",
+    "country": "Country",
+    "documents": "Documents",
+    "addDocument": "Add document",
+    "removeDocument": "Remove",
+    "label": "Document label",
+    "submit": "Submit documents",
+    "submitting": "Submitting…",
+    "dragDrop": "Drag & drop or click to upload",
+    "fileTypes": "PDF, JPEG, PNG or DOCX · max 20 MB per file"
+  },
+  "thankyou": {
+    "title": "Documents received",
+    "subtitle": "Thank you. Our compliance team will review your submission shortly.",
+    "back": "Submit another"
+  }
+}

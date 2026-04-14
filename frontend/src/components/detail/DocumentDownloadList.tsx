@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FileText, FileImage, File, Download, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { downloadDocument } from '../../lib/api'
 import type { Document } from '../../lib/types'
 
@@ -27,6 +28,7 @@ export function DocumentDownloadList({
   documents,
 }: DocumentDownloadListProps) {
   const [downloading, setDownloading] = useState<Record<string, boolean>>({})
+  const { t } = useTranslation()
 
   const handleDownload = async (doc: Document) => {
     if (downloading[doc.id]) return
@@ -41,14 +43,14 @@ export function DocumentDownloadList({
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
       <div className="px-5 py-4 border-b border-gray-100">
-        <h2 className="text-base font-semibold text-gray-900">Uploaded Documents</h2>
+        <h2 className="text-base font-semibold text-gray-900">{t('detail.documents')}</h2>
         <p className="text-xs text-gray-500 mt-0.5">
           {documents.length} {documents.length === 1 ? 'file' : 'files'} submitted
         </p>
       </div>
 
       {documents.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-gray-500 italic">No documents found.</p>
+        <p className="px-5 py-6 text-sm text-gray-500 italic">{t('detail.noDocuments')}</p>
       ) : (
         <ul className="divide-y divide-gray-100">
           {documents.map((doc) => (
@@ -76,7 +78,7 @@ export function DocumentDownloadList({
                 ) : (
                   <Download className="h-3.5 w-3.5" />
                 )}
-                Download
+                {t('detail.downloadPdf')}
               </button>
             </li>
           ))}

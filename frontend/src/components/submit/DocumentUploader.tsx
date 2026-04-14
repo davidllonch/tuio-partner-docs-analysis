@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
+import { useTranslation } from 'react-i18next'
 import {
   Upload,
   FileText,
@@ -56,6 +57,7 @@ export function DocumentUploader({
   isSubmitting,
 }: DocumentUploaderProps) {
   const [rejectionMessages, setRejectionMessages] = useState<string[]>([])
+  const { t } = useTranslation()
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -128,10 +130,10 @@ export function DocumentUploader({
           }`}
         />
         <p className="text-sm font-medium text-gray-700">
-          {isDragActive ? 'Drop files here' : 'Drag files here or click to browse'}
+          {isDragActive ? 'Drop files here' : t('submit.dragDrop')}
         </p>
         <p className="mt-1 text-xs text-gray-500">
-          PDF, JPEG, PNG, DOCX — max 20 MB per file
+          {t('submit.fileTypes')}
         </p>
       </div>
 
@@ -254,7 +256,7 @@ export function DocumentUploader({
           disabled={!canSubmit}
           className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Send Documentation
+          {isSubmitting ? t('submit.submitting') : t('submit.submit')}
         </button>
       </div>
     </div>

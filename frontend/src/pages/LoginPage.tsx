@@ -4,8 +4,10 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useLogin } from '../hooks/useAuth'
 import { isLoggedIn } from '../lib/auth'
+import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
 import axios from 'axios'
 
 const schema = z.object({
@@ -20,6 +22,7 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const loginMutation = useLogin()
+  const { t } = useTranslation()
 
   // If already logged in, skip to dashboard
   useEffect(() => {
@@ -41,23 +44,26 @@ export function LoginPage() {
     loginMutation.mutate(values, {
       onError: (error) => {
         if (axios.isAxiosError(error) && error.response?.status === 401) {
-          setServerError('Incorrect email or password. Please try again.')
+          setServerError(t('auth.errorInvalid'))
         } else {
-          setServerError('Unable to sign in. Please try again later.')
+          setServerError(t('auth.errorGeneric'))
         }
       },
     })
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+    <div className="relative min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-sm">
         {/* Logo / branding */}
         <div className="text-center mb-8">
           <img src="/logo-tuio.png" alt="Tuio" className="h-14 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900">Analyst Login</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('auth.title')}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Sign in to access the KYC/KYB review dashboard
+            {t('auth.subtitle')}
           </p>
         </div>
 
@@ -78,7 +84,7 @@ export function LoginPage() {
                 htmlFor="email"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Email address
+                {t('auth.email')}
               </label>
               <input
                 id="email"
@@ -106,7 +112,7 @@ export function LoginPage() {
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Password
+                {t('auth.password')}
               </label>
               <div className="relative">
                 <input
@@ -124,7 +130,7 @@ export function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   {showPassword ? (
@@ -149,7 +155,7 @@ export function LoginPage() {
               {loginMutation.isPending && (
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
-              Sign in
+              {t('auth.submit')}
             </button>
           </form>
         </div>

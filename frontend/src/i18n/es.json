@@ -1,0 +1,126 @@
+{
+  "nav": {
+    "submissions": "Expedientes",
+    "team": "Equipo"
+  },
+  "auth": {
+    "title": "Acceso de analistas",
+    "subtitle": "Inicia sesión para acceder al panel de revisión KYC/KYB",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Iniciar sesión",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
+    "errorInvalid": "Correo o contraseña incorrectos. Inténtalo de nuevo.",
+    "errorGeneric": "No se ha podido iniciar sesión. Inténtalo más tarde.",
+    "changePassword": "Cambiar contraseña",
+    "logout": "Cerrar sesión"
+  },
+  "dashboard": {
+    "title": "Expedientes",
+    "subtitle": "Todos los expedientes de partners, del más reciente al más antiguo",
+    "refresh": "Actualizar",
+    "errorTitle": "Error al cargar los expedientes",
+    "errorSubtitle": "Comprueba tu conexión e inténtalo de nuevo.",
+    "tryAgain": "Reintentar",
+    "noSubmissions": "Sin expedientes todavía",
+    "noSubmissionsSubtitle": "Los expedientes de partners aparecerán aquí cuando se reciban."
+  },
+  "submission": {
+    "status": {
+      "pending": "Pendiente",
+      "analysing": "Analizando",
+      "complete": "Completado",
+      "error": "Error"
+    },
+    "table": {
+      "provider": "Partner",
+      "type": "Tipo",
+      "entity": "Entidad",
+      "country": "País",
+      "date": "Fecha",
+      "status": "Estado"
+    },
+    "pagination": {
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "showing": "Mostrando",
+      "of": "de",
+      "results": "resultados"
+    }
+  },
+  "detail": {
+    "back": "Volver a expedientes",
+    "documents": "Documentos",
+    "aiReport": "Informe IA",
+    "reanalyse": "Reanalizar",
+    "downloadPdf": "Descargar PDF",
+    "generatingPdf": "Generando...",
+    "pdfError": "Error de descarga",
+    "pdfErrorDesc": "No se ha podido generar el informe PDF. Inténtalo de nuevo.",
+    "noReport": "Informe aún no disponible.",
+    "noReportSubtitle": "El análisis de IA aparecerá aquí cuando finalice.",
+    "analysing": "Análisis en curso…",
+    "errorReport": "El análisis ha fallado",
+    "reanalyseTitle": "Reanalizar expediente",
+    "reanalyseModel": "Modelo",
+    "reanalyseType": "Tipo de partner",
+    "reanalyseSubmit": "Ejecutar análisis",
+    "reanalyseRunning": "Ejecutando…",
+    "reanalyseSuccess": "Análisis completado",
+    "noDocuments": "No hay documentos adjuntos."
+  },
+  "team": {
+    "title": "Equipo",
+    "subtitle": "Gestión de cuentas de analistas",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "joined": "Alta",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "you": "tú",
+    "addAnalyst": "Añadir analista",
+    "fullName": "Nombre completo",
+    "password": "Contraseña",
+    "cancel": "Cancelar",
+    "create": "Crear analista",
+    "creating": "Creando…",
+    "errorDuplicate": "Ya existe un analista con este correo.",
+    "errorGeneric": "No se ha podido crear el analista. Inténtalo de nuevo."
+  },
+  "changePassword": {
+    "title": "Cambiar contraseña",
+    "current": "Contraseña actual",
+    "new": "Nueva contraseña",
+    "confirm": "Confirmar nueva contraseña",
+    "submit": "Actualizar contraseña",
+    "submitting": "Actualizando…",
+    "success": "Contraseña actualizada correctamente",
+    "errorWrong": "La contraseña actual es incorrecta.",
+    "errorMismatch": "Las contraseñas nuevas no coinciden.",
+    "errorShort": "La contraseña debe tener al menos 8 caracteres.",
+    "errorGeneric": "No se ha podido actualizar la contraseña. Inténtalo de nuevo."
+  },
+  "submit": {
+    "title": "Documentación de Partners",
+    "subtitle": "Envía tus documentos de cumplimiento para su revisión",
+    "providerName": "Nombre de la empresa",
+    "providerType": "Tipo de partner",
+    "entityType": "Tipo de entidad",
+    "country": "País",
+    "documents": "Documentos",
+    "addDocument": "Añadir documento",
+    "removeDocument": "Eliminar",
+    "label": "Etiqueta del documento",
+    "submit": "Enviar documentos",
+    "submitting": "Enviando…",
+    "dragDrop": "Arrastra y suelta o haz clic para subir",
+    "fileTypes": "PDF, JPEG, PNG o DOCX · máx. 20 MB por archivo"
+  },
+  "thankyou": {
+    "title": "Documentos recibidos",
+    "subtitle": "Gracias. Nuestro equipo de cumplimiento revisará tu expediente en breve.",
+    "back": "Enviar otro"
+  }
+}

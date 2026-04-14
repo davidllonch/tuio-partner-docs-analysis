@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useTranslation } from 'react-i18next'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { AlertCircle, Download, Loader2 } from 'lucide-react'
 import type { SubmissionStatus } from '../../lib/types'
@@ -84,6 +85,7 @@ const md = {
 export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, providerName }: AIReportPanelProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const { toast } = useToast()
+  const { t } = useTranslation()
 
   const handleDownloadPDF = async () => {
     if (isGenerating) return
@@ -94,8 +96,8 @@ export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, 
       await downloadReportPdf(submissionId, filename)
     } catch {
       toast({
-        title: 'Download failed',
-        description: 'Could not generate the PDF report. Please try again.',
+        title: t('detail.pdfError'),
+        description: t('detail.pdfErrorDesc'),
         variant: 'error',
       })
     } finally {
@@ -107,7 +109,7 @@ export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, 
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">KYC/KYB Analysis Report</h2>
+          <h2 className="text-base font-semibold text-gray-900">{t('detail.aiReport')}</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             AI-generated compliance report based on the submitted documents
           </p>
@@ -120,8 +122,8 @@ export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, 
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isGenerating
-              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generant…</>
-              : <><Download className="h-3.5 w-3.5" />Download PDF</>
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('detail.generatingPdf')}</>
+              : <><Download className="h-3.5 w-3.5" />{t('detail.downloadPdf')}</>
             }
           </button>
         )}
@@ -131,10 +133,9 @@ export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, 
         {(status === 'pending' || status === 'analysing') && (
           <div className="flex flex-col items-center justify-center py-12 gap-4 text-gray-500">
             <LoadingSpinner size="lg" />
-            <p className="text-sm font-medium">Analysis in progress…</p>
+            <p className="text-sm font-medium">{t('detail.analysing')}</p>
             <p className="text-xs text-gray-400 text-center max-w-xs">
-              The AI is reviewing the submitted documents. This page will update
-              automatically when the report is ready.
+              {t('detail.noReportSubtitle')}
             </p>
           </div>
         )}
@@ -144,7 +145,7 @@ export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, 
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-red-800">Analysis failed</p>
+                <p className="text-sm font-semibold text-red-800">{t('detail.errorReport')}</p>
                 {errorMessage && (
                   <p className="mt-1 text-sm text-red-700">{errorMessage}</p>
                 )}
@@ -169,7 +170,7 @@ export function AIReportPanel({ submissionId, status, aiResponse, errorMessage, 
 
         {status === 'complete' && !aiResponse && (
           <p className="text-sm text-gray-500 italic">
-            The analysis completed but no report was generated.
+            {t('detail.noReport')}
           </p>
         )}
       </div>

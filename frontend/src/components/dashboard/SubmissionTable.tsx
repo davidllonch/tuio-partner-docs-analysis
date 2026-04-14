@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '../ui/StatusBadge'
 import type { SubmissionListItem } from '../../lib/types'
 import { PROVIDER_TYPE_LABELS, ENTITY_TYPE_LABELS } from '../../lib/types'
@@ -30,6 +31,7 @@ export function SubmissionTable({
   size,
   onPageChange,
 }: SubmissionTableProps) {
+  const { t } = useTranslation()
   const totalPages = Math.ceil(total / size)
   const hasPrev = page > 1
   const hasNext = page < totalPages
@@ -44,12 +46,12 @@ export function SubmissionTable({
           <thead className="bg-gray-50">
             <tr>
               {[
-                'Date',
-                'Provider Name',
-                'Type',
-                'Entity',
-                'Country',
-                'Status',
+                t('submission.table.date'),
+                t('submission.table.provider'),
+                t('submission.table.type'),
+                t('submission.table.entity'),
+                t('submission.table.country'),
+                t('submission.table.status'),
                 'Action',
               ].map((col) => (
                 <th
@@ -70,7 +72,7 @@ export function SubmissionTable({
                   colSpan={7}
                   className="px-4 py-12 text-center text-sm text-gray-500"
                 >
-                  No submissions yet.
+                  {t('dashboard.noSubmissions')}
                 </td>
               </tr>
             ) : (
@@ -116,16 +118,19 @@ export function SubmissionTable({
       {total > size && (
         <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-3">
           <p className="text-sm text-gray-600">
-            Showing <span className="font-medium">{start}</span>–
-            <span className="font-medium">{end}</span> of{' '}
-            <span className="font-medium">{total}</span> submissions
+            {t('submission.pagination.showing')}{' '}
+            <span className="font-medium">{start}</span>–
+            <span className="font-medium">{end}</span>{' '}
+            {t('submission.pagination.of')}{' '}
+            <span className="font-medium">{total}</span>{' '}
+            {t('submission.pagination.results')}
           </p>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => onPageChange(page - 1)}
               disabled={!hasPrev}
-              aria-label="Previous page"
+              aria-label={t('submission.pagination.previous')}
               className="p-1.5 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -136,7 +141,7 @@ export function SubmissionTable({
             <button
               onClick={() => onPageChange(page + 1)}
               disabled={!hasNext}
-              aria-label="Next page"
+              aria-label={t('submission.pagination.next')}
               className="p-1.5 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight className="h-4 w-4" />

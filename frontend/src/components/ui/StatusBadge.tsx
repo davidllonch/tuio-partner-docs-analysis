@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { SubmissionStatus } from '../../lib/types'
 
 interface StatusBadgeProps {
@@ -6,28 +7,27 @@ interface StatusBadgeProps {
 
 const CONFIG: Record<
   SubmissionStatus,
-  { label: string; className: string }
+  { className: string }
 > = {
   pending: {
-    label: 'Processing',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
   },
   analysing: {
-    label: 'Processing',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
   },
   complete: {
-    label: 'Complete',
     className: 'bg-green-100 text-green-700 border border-green-200',
   },
   error: {
-    label: 'Error',
     className: 'bg-red-100 text-red-700 border border-red-200',
   },
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const { label, className } = CONFIG[status]
+  const { t } = useTranslation()
+  const { className } = CONFIG[status]
+
+  const label = t(`submission.status.${status}`)
 
   return (
     <span

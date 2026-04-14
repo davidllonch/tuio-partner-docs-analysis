@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
 
 const REDIRECT_SECONDS = 5
 const REDIRECT_URL = 'https://www.tuio.com'
 
 export function ThankYouPage() {
   const [countdown, setCountdown] = useState(REDIRECT_SECONDS)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (countdown <= 0) {
@@ -21,7 +24,10 @@ export function ThankYouPage() {
   }, [countdown])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+    <div className="relative min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-md text-center">
         {/* Success icon */}
         <div className="flex justify-center mb-6">
@@ -30,13 +36,10 @@ export function ThankYouPage() {
           </div>
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-3">Thank you!</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-3">{t('thankyou.title')}</h1>
 
         <p className="text-gray-600 text-base leading-relaxed">
-          Your documentation has been successfully submitted.
-        </p>
-        <p className="text-gray-500 text-sm mt-2">
-          Our team will review it and contact you if anything additional is needed.
+          {t('thankyou.subtitle')}
         </p>
 
         <div className="mt-8 inline-flex items-center gap-2 text-sm text-gray-500 bg-white rounded-full px-5 py-2.5 border border-gray-200 shadow-sm">

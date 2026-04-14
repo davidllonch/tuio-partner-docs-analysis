@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useReanalyse, useModels } from '../../hooks/useSubmissions'
 import { useToast } from '../ui/Toast'
 import type { ProviderType, Analysis } from '../../lib/types'
@@ -36,6 +37,7 @@ export function ReanalysePanel({
   const [selectedType, setSelectedType] = useState<ProviderType>(currentProviderType)
   const [selectedModel, setSelectedModel] = useState<string>('')
   const { toast } = useToast()
+  const { t } = useTranslation()
   const mutation = useReanalyse(submissionId)
   const { data: modelsData, isLoading: modelsLoading } = useModels()
   const models = modelsData?.models ?? []
@@ -56,7 +58,7 @@ export function ReanalysePanel({
       {
         onSuccess: () => {
           toast({
-            title: 'Analysis complete',
+            title: t('detail.reanalyseSuccess'),
             description: 'Email sent to david.llonch@tuio.com.',
             variant: 'success',
           })
@@ -65,7 +67,7 @@ export function ReanalysePanel({
           const message =
             error instanceof Error ? error.message : 'Please try again.'
           toast({
-            title: 'Re-analysis failed',
+            title: t('detail.errorReport'),
             description: message,
             variant: 'error',
           })
@@ -79,7 +81,7 @@ export function ReanalysePanel({
       {/* Re-analyse card */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">Re-run Analysis</h2>
+          <h2 className="text-base font-semibold text-gray-900">{t('detail.reanalyseTitle')}</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             Use this if the partner selected the wrong provider type, or to use a different AI model.
           </p>
@@ -98,7 +100,7 @@ export function ReanalysePanel({
               htmlFor="reanalyse-type"
               className="block text-xs font-medium text-gray-700 mb-1"
             >
-              Corrected Provider Type
+              {t('detail.reanalyseType')}
             </label>
             <select
               id="reanalyse-type"
@@ -120,7 +122,7 @@ export function ReanalysePanel({
               htmlFor="reanalyse-model"
               className="block text-xs font-medium text-gray-700 mb-1"
             >
-              AI Model
+              {t('detail.reanalyseModel')}
             </label>
             <select
               id="reanalyse-model"
@@ -151,12 +153,12 @@ export function ReanalysePanel({
             {mutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Re-analysing…
+                {t('detail.reanalyseRunning')}
               </>
             ) : (
               <>
                 <RefreshCw className="h-4 w-4" />
-                Re-analyse &amp; Send Email
+                {t('detail.reanalyse')} &amp; Send Email
               </>
             )}
           </button>
@@ -175,16 +177,16 @@ export function ReanalysePanel({
               <thead>
                 <tr className="bg-gray-50">
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    Date
+                    {t('submission.table.date')}
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    Provider Type
+                    {t('submission.table.type')}
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     Triggered By
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    Model
+                    {t('detail.reanalyseModel')}
                   </th>
                 </tr>
               </thead>

@@ -10,6 +10,8 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "i18next": "^24.0.0",
+    "react-i18next": "^15.0.0",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-select": "^2.1.2",
     "@radix-ui/react-toast": "^1.2.2",

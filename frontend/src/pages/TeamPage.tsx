@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LogOut, UserPlus, Loader2, Users, KeyRound } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAnalysts, useCreateAnalyst } from '../hooks/useAnalysts'
 import { useCurrentAnalyst, useLogout } from '../hooks/useAuth'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { ChangePasswordModal } from '../components/ui/ChangePasswordModal'
+import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
 import { useToast } from '../components/ui/Toast'
 import axios from 'axios'
 
@@ -22,6 +24,7 @@ export function TeamPage() {
   const logout = useLogout()
   const createMutation = useCreateAnalyst()
   const { toast } = useToast()
+  const { t } = useTranslation()
 
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -47,9 +50,9 @@ export function TeamPage() {
         onError: (error) => {
           setPassword('')
           if (axios.isAxiosError(error) && error.response?.status === 409) {
-            setFormError('An analyst with this email already exists.')
+            setFormError(t('team.errorDuplicate'))
           } else {
-            setFormError('Something went wrong. Please try again.')
+            setFormError(t('team.errorGeneric'))
           }
         },
       }
@@ -71,18 +74,19 @@ export function TeamPage() {
                   to="/dashboard"
                   className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  Submissions
+                  {t('nav.submissions')}
                 </Link>
                 <Link
                   to="/team"
                   className="px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg"
                 >
-                  Team
+                  {t('nav.team')}
                 </Link>
               </nav>
             </div>
 
             <div className="flex items-center gap-3">
+              <LanguageSwitcher />
               {currentAnalyst && (
                 <span className="hidden sm:block text-sm text-gray-600">
                   {currentAnalyst.full_name}
@@ -93,14 +97,14 @@ export function TeamPage() {
                 className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <KeyRound className="h-4 w-4" />
-                <span className="hidden sm:inline">Change password</span>
+                <span className="hidden sm:inline">{t('auth.changePassword')}</span>
               </button>
               <button
                 onClick={logout}
                 className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Log out</span>
+                <span className="hidden sm:inline">{t('auth.logout')}</span>
               </button>
             </div>
           </div>
@@ -111,9 +115,9 @@ export function TeamPage() {
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Team</h2>
+            <h2 className="text-xl font-bold text-gray-900">{t('team.title')}</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              Analysts who can access this dashboard
+              {t('team.subtitle')}
             </p>
           </div>
           <button
@@ -121,7 +125,7 @@ export function TeamPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition-colors"
           >
             <UserPlus className="h-4 w-4" />
-            Add analyst
+            {t('team.addAnalyst')}
           </button>
         </div>
 
@@ -131,7 +135,7 @@ export function TeamPage() {
             <h3 className="text-sm font-semibold text-gray-900 mb-4">New analyst</h3>
             <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Full name</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('team.fullName')}</label>
                 <input
                   type="text"
                   value={fullName}
@@ -142,7 +146,7 @@ export function TeamPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('team.email')}</label>
                 <input
                   type="email"
                   value={email}
@@ -154,7 +158,7 @@ export function TeamPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Password <span className="text-gray-400">(min. 8 chars)</span>
+                  {t('team.password')} <span className="text-gray-400">(min. 8 chars)</span>
                 </label>
                 <input
                   type="password"
@@ -178,7 +182,7 @@ export function TeamPage() {
                   onClick={() => { setShowAddForm(false); setFormError(null); setPassword('') }}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  Cancel
+                  {t('team.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -186,7 +190,7 @@ export function TeamPage() {
                   className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 transition-colors disabled:opacity-60"
                 >
                   {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create analyst
+                  {createMutation.isPending ? t('team.creating') : t('team.create')}
                 </button>
               </div>
             </form>
@@ -202,14 +206,14 @@ export function TeamPage() {
 
         {isError && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
-            <p className="text-sm font-medium text-red-800">Failed to load analysts</p>
+            <p className="text-sm font-medium text-red-800">{t('dashboard.errorTitle')}</p>
           </div>
         )}
 
         {analysts && analysts.length === 0 && (
           <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
             <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">No analysts yet.</p>
+            <p className="text-sm text-gray-500">{t('dashboard.noSubmissions')}</p>
           </div>
         )}
 
@@ -218,10 +222,10 @@ export function TeamPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Added</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('team.name')}</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('team.email')}</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('team.joined')}</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('team.status')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -230,7 +234,7 @@ export function TeamPage() {
                     <td className="px-5 py-3 font-medium text-gray-900 whitespace-nowrap">
                       {analyst.full_name ?? '—'}
                       {analyst.email === currentAnalyst?.email && (
-                        <span className="ml-2 text-xs text-primary-600 font-normal">(you)</span>
+                        <span className="ml-2 text-xs text-primary-600 font-normal">({t('team.you')})</span>
                       )}
                     </td>
                     <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{analyst.email}</td>
@@ -241,7 +245,7 @@ export function TeamPage() {
                           ? 'bg-green-100 text-green-700'
                           : 'bg-gray-100 text-gray-500'
                       }`}>
-                        {analyst.is_active ? 'Active' : 'Inactive'}
+                        {analyst.is_active ? t('team.active') : t('team.inactive')}
                       </span>
                     </td>
                   </tr>

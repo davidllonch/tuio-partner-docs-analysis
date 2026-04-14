@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, LogOut, Calendar, MapPin, Building2, User } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useSubmission } from '../hooks/useSubmissions'
 import { useCurrentAnalyst, useLogout } from '../hooks/useAuth'
 import { AIReportPanel } from '../components/detail/AIReportPanel'
@@ -7,6 +8,7 @@ import { DocumentDownloadList } from '../components/detail/DocumentDownloadList'
 import { ReanalysePanel } from '../components/detail/ReanalysePanel'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
 import { PROVIDER_TYPE_LABELS, ENTITY_TYPE_LABELS } from '../lib/types'
 
 function formatDate(iso: string): string {
@@ -24,6 +26,7 @@ export function SubmissionDetailPage() {
   const { data: submission, isLoading, isError } = useSubmission(id!)
   const { data: analyst } = useCurrentAnalyst()
   const logout = useLogout()
+  const { t } = useTranslation()
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -36,6 +39,7 @@ export function SubmissionDetailPage() {
             </div>
 
             <div className="flex items-center gap-4">
+              <LanguageSwitcher />
               {analyst && (
                 <span className="hidden sm:block text-sm text-gray-600">
                   {analyst.full_name}
@@ -44,10 +48,10 @@ export function SubmissionDetailPage() {
               <button
                 onClick={logout}
                 className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                aria-label="Log out"
+                aria-label={t('auth.logout')}
               >
                 <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Log out</span>
+                <span className="hidden sm:inline">{t('auth.logout')}</span>
               </button>
             </div>
           </div>
@@ -62,7 +66,7 @@ export function SubmissionDetailPage() {
             className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            {t('detail.back')}
           </Link>
         </div>
       </div>
@@ -78,10 +82,10 @@ export function SubmissionDetailPage() {
         {isError && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center max-w-md mx-auto">
             <p className="text-sm font-medium text-red-800">
-              Failed to load submission
+              {t('dashboard.errorTitle')}
             </p>
             <p className="text-xs text-red-600 mt-1">
-              The submission may not exist or you may not have access.
+              {t('dashboard.errorSubtitle')}
             </p>
           </div>
         )}
