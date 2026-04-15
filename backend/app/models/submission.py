@@ -44,7 +44,6 @@ class Submission(Base):
     invitation: Mapped[Optional["Invitation"]] = relationship(
         "Invitation",
         foreign_keys=[invitation_id],
-        back_populates="submission",
     )
 
 

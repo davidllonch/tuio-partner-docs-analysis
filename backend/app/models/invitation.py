@@ -58,5 +58,4 @@ class Invitation(Base):
     submission = relationship(
         "Submission",
         foreign_keys=[submission_id],
-        back_populates="invitation",
     )
