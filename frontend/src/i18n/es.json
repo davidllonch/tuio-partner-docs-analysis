@@ -170,7 +170,7 @@
     "cancelError": "No se ha podido cancelar la invitación. Inténtalo de nuevo."
   },
   "invite": {
-    "context": "Has sido invitado a enviar tu documentación de cumplimiento. Tu perfil de empresa ha sido configurado por tu gestor de cuenta.",
+    "context": "Has sido invitado a enviar tu documentación. Tu perfil de empresa ha sido configurado por Tuio según la información compartida previamente.",
     "companyInfo": "Datos de tu empresa",
     "errorTitle": "Este enlace no está disponible",
     "invalidLink": "Este enlace no es válido. Contacta con tu gestor de cuenta.",

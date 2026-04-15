@@ -170,7 +170,7 @@
     "cancelError": "Could not cancel invitation. Please try again."
   },
   "invite": {
-    "context": "You have been invited to submit your compliance documents. Your company profile has been set up by your account manager.",
+    "context": "You have been invited to submit your documents. Your company profile has been set up by Tuio according to information shared previously.",
     "companyInfo": "Your company details",
     "errorTitle": "This link is not available",
     "invalidLink": "This link is not valid. Please contact your account manager.",

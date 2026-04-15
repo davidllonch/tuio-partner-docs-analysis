@@ -149,6 +149,7 @@ export function InvitePage() {
                   onSubmit={handleSubmit}
                   isSubmitting={isSubmitting}
                   hideBackButton
+                  autoLabel
                 />
               </div>
             </div>

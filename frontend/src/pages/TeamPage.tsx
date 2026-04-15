@@ -77,6 +77,12 @@ export function TeamPage() {
                   {t('nav.submissions')}
                 </Link>
                 <Link
+                  to="/invitations"
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  {t('nav.invitations')}
+                </Link>
+                <Link
                   to="/team"
                   className="px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg"
                 >

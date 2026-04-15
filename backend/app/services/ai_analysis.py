@@ -154,7 +154,7 @@ Informe interno en español. Estructura:
 
 No inventes datos. Si algo no puede confirmarse, dilo. Sé prudente. Escribe de forma clara y orientada a negocio/compliance.
 
-El informe completo no debe superar los 8.000 caracteres en total. Si es necesario, sé más conciso en las observaciones, pero nunca omitas ningún requisito del análisis semáforo ni la conclusión operativa.
+El informe completo no debe superar los 4.000 caracteres en total. Sé muy conciso: resume cada punto en 1-2 líneas, evita repeticiones y usa frases cortas. Nunca omitas ningún requisito del análisis semáforo ni la conclusión operativa, pero prioriza la brevedad sobre el detalle.
 
 ## 10. Proceso interno antes de redactar
 
@@ -278,7 +278,7 @@ async def _call_anthropic(
     client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
     response = await client.messages.create(
         model=model,
-        max_tokens=4096,
+        max_tokens=1800,
         system=[
             {
                 "type": "text",
@@ -304,7 +304,7 @@ async def _call_openai(
 
     response = await openai_client.chat.completions.create(
         model="gpt-4o",
-        max_tokens=4096,
+        max_tokens=1800,
         messages=[
             {"role": "system", "content": KYC_SYSTEM_PROMPT},
             {"role": "user", "content": openai_content},

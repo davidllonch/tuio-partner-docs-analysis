@@ -23,6 +23,7 @@ interface DocumentUploaderProps {
   onSubmit: () => void
   isSubmitting: boolean
   hideBackButton?: boolean
+  autoLabel?: boolean
 }
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 // 20 MB
@@ -57,6 +58,7 @@ export function DocumentUploader({
   onSubmit,
   isSubmitting,
   hideBackButton = false,
+  autoLabel = false,
 }: DocumentUploaderProps) {
   const [rejectionMessages, setRejectionMessages] = useState<string[]>([])
   const { t } = useTranslation()
@@ -67,11 +69,11 @@ export function DocumentUploader({
       const newEntries: FileEntry[] = acceptedFiles.map((file) => ({
         id: crypto.randomUUID(),
         file,
-        label: '',
+        label: autoLabel ? file.name : '',
       }))
       onChange([...files, ...newEntries])
     },
-    [files, onChange]
+    [files, onChange, autoLabel]
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -104,7 +106,7 @@ export function DocumentUploader({
 
   const totalBytes = files.reduce((sum, f) => sum + f.file.size, 0)
   const totalExceeded = totalBytes > MAX_TOTAL_SIZE_BYTES
-  const hasEmptyLabel = files.some((f) => f.label.trim() === '')
+  const hasEmptyLabel = !autoLabel && files.some((f) => f.label.trim() === '')
   const canSubmit = files.length > 0 && !hasEmptyLabel && !totalExceeded && !isSubmitting
 
   return (
@@ -177,30 +179,32 @@ export function DocumentUploader({
                   </span>
                 </div>
 
-                <div>
-                  <input
-                    type="text"
-                    value={entry.label}
-                    onChange={(e) => updateLabel(entry.id, e.target.value)}
-                    placeholder='Document label (e.g. "Certificate of incorporation")'
-                    aria-label={`Label for ${entry.file.name}`}
-                    className={`
-                      w-full rounded-md border px-2.5 py-1.5 text-sm
-                      placeholder-gray-400 transition-colors
-                      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
-                      ${
-                        entry.label.trim() === ''
-                          ? 'border-amber-300 bg-amber-50'
-                          : 'border-gray-300 bg-white'
-                      }
-                    `}
-                  />
-                  {entry.label.trim() === '' && (
-                    <p className="mt-0.5 text-xs text-amber-600">
-                      Please describe this document
-                    </p>
-                  )}
-                </div>
+                {!autoLabel && (
+                  <div>
+                    <input
+                      type="text"
+                      value={entry.label}
+                      onChange={(e) => updateLabel(entry.id, e.target.value)}
+                      placeholder='Document label (e.g. "Certificate of incorporation")'
+                      aria-label={`Label for ${entry.file.name}`}
+                      className={`
+                        w-full rounded-md border px-2.5 py-1.5 text-sm
+                        placeholder-gray-400 transition-colors
+                        focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                        ${
+                          entry.label.trim() === ''
+                            ? 'border-amber-300 bg-amber-50'
+                            : 'border-gray-300 bg-white'
+                        }
+                      `}
+                    />
+                    {entry.label.trim() === '' && (
+                      <p className="mt-0.5 text-xs text-amber-600">
+                        Please describe this document
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <button
