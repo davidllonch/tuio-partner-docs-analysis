@@ -8,6 +8,8 @@ export type EntityType = 'PF' | 'PJ'
 
 export type SubmissionStatus = 'pending' | 'analysing' | 'complete' | 'error'
 
+export type InvitationStatus = 'pending' | 'submitted' | 'expired'
+
 export interface SubmissionListItem {
   id: string
   created_at: string
@@ -113,4 +115,52 @@ export const PROVIDER_TYPE_LABELS: Record<ProviderType, string> = {
 export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   PJ: 'Legal Entity (Persona Jurídica)',
   PF: 'Physical Person (Persona Física)',
+}
+
+// ── Invitation types ──────────────────────────────────────────────────────────
+
+export interface InvitationAnalyst {
+  id: string
+  full_name: string | null
+}
+
+export interface InvitationListItem {
+  id: string
+  token: string
+  provider_name: string
+  provider_type: ProviderType
+  entity_type: EntityType
+  country: string
+  status: InvitationStatus
+  created_at: string
+  expires_at: string
+  submission_id: string | null
+  created_by_analyst: InvitationAnalyst | null
+}
+
+export interface InvitationCreateResponse extends InvitationListItem {
+  invitation_url: string
+}
+
+export interface InvitationPublic {
+  id: string
+  provider_name: string
+  provider_type: ProviderType
+  entity_type: EntityType
+  country: string
+  status: InvitationStatus
+}
+
+export interface CreateInvitationRequest {
+  provider_name: string
+  provider_type: ProviderType
+  entity_type: EntityType
+  country: string
+}
+
+export interface PaginatedInvitations {
+  items: InvitationListItem[]
+  total: number
+  page: number
+  size: number
 }

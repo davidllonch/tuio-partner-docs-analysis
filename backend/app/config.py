@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     EMAIL_FROM_ADDRESS: str
     DOCUMENTS_BASE_PATH: str = "/data/documents"
     CORS_ORIGINS: str = "http://localhost:5173"
+    FRONTEND_BASE_URL: str = "https://tuiopartnersdocs.42labs.es"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

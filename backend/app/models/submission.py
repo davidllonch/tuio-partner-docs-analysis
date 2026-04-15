@@ -28,6 +28,11 @@ class Submission(Base):
         DateTime(timezone=True), nullable=True
     )
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    invitation_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("invitations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Relationships
     documents: Mapped[List["Document"]] = relationship(
@@ -35,6 +40,11 @@ class Submission(Base):
     )
     analyses: Mapped[List["Analysis"]] = relationship(
         "Analysis", back_populates="submission", cascade="all, delete-orphan"
+    )
+    invitation: Mapped[Optional["Invitation"]] = relationship(
+        "Invitation",
+        foreign_keys=[invitation_id],
+        back_populates="submission",
     )
 
 

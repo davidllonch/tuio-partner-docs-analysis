@@ -12,15 +12,16 @@ import type {
   CreateAnalystRequest,
   ChangePasswordRequest,
   Analyst,
+  CreateInvitationRequest,
+  InvitationCreateResponse,
+  PaginatedInvitations,
+  InvitationPublic,
 } from './types'
 
 const baseURL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}`
   : ''
 
-// The axios instance all requests go through.
-// In development, Vite proxies /api/* to localhost:8000.
-// In production, the reverse proxy handles it on the same domain.
 export const apiClient = axios.create({
   baseURL,
   headers: {
@@ -28,7 +29,6 @@ export const apiClient = axios.create({
   },
 })
 
-// Request interceptor: attach the JWT token if one exists in localStorage
 apiClient.interceptors.request.use((config) => {
   const token = getToken()
   if (token) {
@@ -37,11 +37,6 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor: on 401 (unauthorized), clear the stored token and
-// send the user back to the login page. This handles expired/invalid tokens
-// automatically without needing to check manually in every component.
-// Exception: the login endpoint itself returns 401 for bad credentials —
-// we skip the redirect there so the LoginPage can handle the error normally.
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -86,7 +81,6 @@ export async function fetchSubmission(id: string): Promise<SubmissionDetail> {
 export async function createSubmission(formData: FormData): Promise<{ status: string }> {
   const response = await apiClient.post<{ status: string }>('/api/submissions', formData, {
     headers: {
-      // Let axios set the correct multipart boundary automatically
       'Content-Type': 'multipart/form-data',
     },
   })
@@ -145,8 +139,6 @@ export async function fetchModels(): Promise<{ models: ModelOption[] }> {
 
 // --- Documents ---
 
-// Downloads a document programmatically using axios (with auth header)
-// and triggers a browser download via a temporary anchor element.
 export async function downloadDocument(
   submissionId: string,
   documentId: string,
@@ -169,4 +161,33 @@ export async function downloadDocument(
   anchor.click()
   window.document.body.removeChild(anchor)
   window.URL.revokeObjectURL(url)
+}
+
+// --- Invitations ---
+
+export async function createInvitation(
+  data: CreateInvitationRequest
+): Promise<InvitationCreateResponse> {
+  const response = await apiClient.post<InvitationCreateResponse>('/api/invitations', data)
+  return response.data
+}
+
+export async function fetchInvitations(params?: {
+  status_filter?: string
+  page?: number
+  size?: number
+}): Promise<PaginatedInvitations> {
+  const response = await apiClient.get<PaginatedInvitations>('/api/invitations', {
+    params,
+  })
+  return response.data
+}
+
+export async function fetchInvitationByToken(token: string): Promise<InvitationPublic> {
+  const response = await apiClient.get<InvitationPublic>(`/api/invitations/${token}`)
+  return response.data
+}
+
+export async function cancelInvitation(id: string): Promise<void> {
+  await apiClient.delete(`/api/invitations/${id}`)
 }

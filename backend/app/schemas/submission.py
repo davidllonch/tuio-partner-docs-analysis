@@ -91,3 +91,95 @@ class ReanalyseRequest(BaseModel):
 class ReanalyseResponse(BaseModel):
     status: str
     analysis_id: str
+
+
+# ── Invitation schemas ────────────────────────────────────────────────────────
+
+class AnalystSummary(BaseModel):
+    id: uuid.UUID
+    full_name: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
+class CreateInvitationRequest(BaseModel):
+    provider_name: str
+    provider_type: str
+    entity_type: str
+    country: str
+
+    @field_validator("provider_type")
+    @classmethod
+    def validate_provider_type(cls, v: str) -> str:
+        if v not in VALID_PROVIDER_TYPES:
+            raise ValueError(
+                f"provider_type must be one of: {', '.join(sorted(VALID_PROVIDER_TYPES))}"
+            )
+        return v
+
+    @field_validator("entity_type")
+    @classmethod
+    def validate_entity_type(cls, v: str) -> str:
+        if v not in VALID_ENTITY_TYPES:
+            raise ValueError("entity_type must be 'PF' or 'PJ'")
+        return v
+
+    @field_validator("provider_name")
+    @classmethod
+    def validate_provider_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("provider_name is required")
+        if len(v) > 255:
+            raise ValueError("provider_name must not exceed 255 characters")
+        return v
+
+    @field_validator("country")
+    @classmethod
+    def validate_country(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("country is required")
+        if len(v) > 100:
+            raise ValueError("country must not exceed 100 characters")
+        return v
+
+
+class InvitationListItem(BaseModel):
+    id: uuid.UUID
+    token: str
+    provider_name: str
+    provider_type: str
+    entity_type: str
+    country: str
+    status: str
+    created_at: datetime
+    expires_at: datetime
+    submission_id: Optional[uuid.UUID]
+    created_by_analyst: Optional[AnalystSummary]
+
+    model_config = {"from_attributes": True}
+
+
+class InvitationCreateResponse(InvitationListItem):
+    invitation_url: str
+
+
+class InvitationPublic(BaseModel):
+    """Returned by the public GET /invitations/:token endpoint.
+    Does NOT include the token or analyst details."""
+    id: uuid.UUID
+    provider_name: str
+    provider_type: str
+    entity_type: str
+    country: str
+    status: str
+
+    model_config = {"from_attributes": True}
+
+
+class InvitationListResponse(BaseModel):
+    items: List[InvitationListItem]
+    total: int
+    page: int
+    size: int

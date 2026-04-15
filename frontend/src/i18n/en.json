@@ -1,6 +1,7 @@
 {
   "nav": {
     "submissions": "Submissions",
+    "invitations": "Invitations",
     "team": "Team"
   },
   "auth": {
@@ -140,5 +141,42 @@
     "title": "Documents received",
     "subtitle": "Thank you. Our compliance team will review your submission shortly.",
     "back": "Submit another"
+  },
+  "invitations": {
+    "title": "Invitations",
+    "subtitle": "Manage partner invitation links",
+    "newInvitation": "New invitation",
+    "copyLink": "Copy link",
+    "copied": "Copied!",
+    "cancel": "Cancel",
+    "cancelButton": "Cancel",
+    "createButton": "Create invitation",
+    "viewSubmission": "View submission",
+    "status": {
+      "pending": "Pending",
+      "submitted": "Submitted",
+      "expired": "Expired"
+    },
+    "empty": "No invitations yet.",
+    "expiresOn": "Expires",
+    "confirmCancel": "Are you sure you want to cancel the invitation for {{name}}?",
+    "createdBy": "Created by",
+    "actions": "Actions",
+    "filterAll": "All statuses",
+    "createdSuccess": "Invitation created. Copy the link below and send it to the partner.",
+    "close": "Close",
+    "createError": "Could not create invitation. Please try again.",
+    "cancelSuccess": "Invitation cancelled.",
+    "cancelError": "Could not cancel invitation. Please try again."
+  },
+  "invite": {
+    "context": "You have been invited to submit your compliance documents. Your company profile has been set up by your account manager.",
+    "companyInfo": "Your company details",
+    "errorTitle": "This link is not available",
+    "invalidLink": "This link is not valid. Please contact your account manager.",
+    "alreadyUsed": "This invitation has already been used.",
+    "expired": "This invitation link has expired. Please contact your account manager.",
+    "submitError": "Something went wrong. Please try again or contact support.",
+    "privacyNote": "Your information is handled in accordance with applicable data protection regulations."
   }
 }

@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.routers import auth as auth_router
 from app.routers import submissions as submissions_router
 from app.routers import analysts as analysts_router
+from app.routers import invitations as invitations_router
 from app.services.cleanup import create_cleanup_scheduler
 
 # Configure structured logging for the entire application
@@ -42,7 +43,6 @@ async def lifespan(app: FastAPI):
     logger.info("Starting KYC/KYB Partner Documentation API v1.0.0")
 
     # Start the nightly document cleanup scheduler.
-    # This runs in the background and automatically deletes files older than 90 days.
     _scheduler = create_cleanup_scheduler(
         documents_base_path=settings.DOCUMENTS_BASE_PATH,
         database_url=settings.DATABASE_URL,
@@ -79,8 +79,6 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ── CORS Middleware ──────────────────────────────────────────────────────────
-# CORS controls which websites are allowed to call this API.
-# Without this, a browser on a different domain would block the request.
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
@@ -94,6 +92,7 @@ app.add_middleware(
 app.include_router(auth_router.router, prefix="/api")
 app.include_router(submissions_router.router, prefix="/api")
 app.include_router(analysts_router.router, prefix="/api")
+app.include_router(invitations_router.router, prefix="/api")
 
 
 # ── Health check (public, no auth required) ──────────────────────────────────

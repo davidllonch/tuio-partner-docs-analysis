@@ -35,6 +35,7 @@ from app.database import get_db, AsyncSessionLocal
 from app.models.analysis import Analysis
 from app.models.analyst import Analyst
 from app.models.audit import AuditLog
+from app.models.invitation import Invitation
 from app.models.submission import Document, Submission
 from app.schemas.submission import (
     ReanalyseRequest,
@@ -255,6 +256,7 @@ async def create_submission(
     country: str = Form(...),
     files: List[UploadFile] = File(...),
     labels: List[str] = Form(...),
+    invitation_token: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
@@ -328,6 +330,36 @@ async def create_submission(
             detail=f"Total upload size ({total_size // 1024 // 1024} MB) exceeds the 100 MB limit",
         )
 
+    # ── 1b. If invitation_token provided, validate and load invitation data ───
+    invitation: Optional[Invitation] = None
+    if invitation_token:
+        inv_result = await db.execute(
+            select(Invitation).where(Invitation.token == invitation_token)
+        )
+        invitation = inv_result.scalar_one_or_none()
+
+        if invitation is None:
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="Invitation not found or has expired",
+            )
+        if invitation.status == "submitted":
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="already_used",
+            )
+        if invitation.status == "expired" or invitation.expires_at < datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="expired",
+            )
+
+        # Override form values with invitation data (security: partner cannot modify these)
+        provider_name = invitation.provider_name
+        provider_type = invitation.provider_type
+        entity_type = invitation.entity_type
+        country = invitation.country
+
     # ── 2. Create submission record ──────────────────────────────────────────
 
     submission_id = uuid.uuid4()
@@ -339,6 +371,7 @@ async def create_submission(
         entity_type=entity_type,
         country=country,
         status="pending",
+        invitation_id=invitation.id if invitation else None,
     )
     db.add(submission)
     await db.flush()
@@ -390,6 +423,12 @@ async def create_submission(
 
     submission.status = "analysing"
     await db.commit()
+
+    # Mark invitation as used (atomic with the submission commit above)
+    if invitation:
+        invitation.status = "submitted"
+        invitation.submission_id = submission_id
+        await db.commit()
 
     # Schedule AI analysis + email as a background task.
     # The partner receives a success response immediately — no waiting.

@@ -1,6 +1,7 @@
 {
   "nav": {
     "submissions": "Expedientes",
+    "invitations": "Invitaciones",
     "team": "Equipo"
   },
   "auth": {
@@ -140,5 +141,42 @@
     "title": "Documentos recibidos",
     "subtitle": "Gracias. Nuestro equipo de cumplimiento revisará tu expediente en breve.",
     "back": "Enviar otro"
+  },
+  "invitations": {
+    "title": "Invitaciones",
+    "subtitle": "Gestión de enlaces de invitación a partners",
+    "newInvitation": "Nueva invitación",
+    "copyLink": "Copiar enlace",
+    "copied": "¡Copiado!",
+    "cancel": "Cancelar",
+    "cancelButton": "Cancelar",
+    "createButton": "Crear invitación",
+    "viewSubmission": "Ver expediente",
+    "status": {
+      "pending": "Pendiente",
+      "submitted": "Enviada",
+      "expired": "Caducada"
+    },
+    "empty": "Todavía no hay invitaciones.",
+    "expiresOn": "Caduca",
+    "confirmCancel": "¿Seguro que quieres cancelar la invitación para {{name}}?",
+    "createdBy": "Creada por",
+    "actions": "Acciones",
+    "filterAll": "Todos los estados",
+    "createdSuccess": "Invitación creada. Copia el enlace y envíaselo al partner.",
+    "close": "Cerrar",
+    "createError": "No se ha podido crear la invitación. Inténtalo de nuevo.",
+    "cancelSuccess": "Invitación cancelada.",
+    "cancelError": "No se ha podido cancelar la invitación. Inténtalo de nuevo."
+  },
+  "invite": {
+    "context": "Has sido invitado a enviar tu documentación de cumplimiento. Tu perfil de empresa ha sido configurado por tu gestor de cuenta.",
+    "companyInfo": "Datos de tu empresa",
+    "errorTitle": "Este enlace no está disponible",
+    "invalidLink": "Este enlace no es válido. Contacta con tu gestor de cuenta.",
+    "alreadyUsed": "Esta invitación ya ha sido utilizada.",
+    "expired": "Este enlace de invitación ha caducado. Contacta con tu gestor de cuenta.",
+    "submitError": "Algo ha ido mal. Inténtalo de nuevo o contacta con soporte.",
+    "privacyNote": "Tu información se trata de acuerdo con la normativa de protección de datos aplicable."
   }
 }
