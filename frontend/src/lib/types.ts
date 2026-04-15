@@ -46,6 +46,7 @@ export interface ReanalyseResponse {
 export interface SubmissionDetail extends SubmissionListItem {
   ai_response: string | null
   error_message: string | null
+  partner_info: string | null
   documents: Document[]
   analyses: Analysis[]
 }
@@ -163,4 +164,40 @@ export interface PaginatedInvitations {
   total: number
   page: number
   size: number
+}
+
+// ── Partner info types (for declaration personalisation) ──────────────────────
+
+export interface PartnerInfoPJ {
+  entity_type: 'PJ'
+  razon_social: string
+  cif: string
+  domicilio_social: string
+  nombre_representante: string
+  nif_representante: string
+}
+
+export interface PartnerInfoPF {
+  entity_type: 'PF'
+  nombre_apellidos: string
+  nif: string
+  domicilio: string
+}
+
+export type PartnerInfo = PartnerInfoPJ | PartnerInfoPF
+
+// ── Declaration template types ────────────────────────────────────────────────
+
+export interface DeclarationTemplateInfo {
+  provider_type: string
+  entity_type: string
+  provider_type_label: string
+  entity_type_label: string
+  original_filename: string
+  uploaded_at: string
+  uploaded_by_name: string | null
+}
+
+export interface AllDeclarationTemplatesResponse {
+  templates: DeclarationTemplateInfo[]
 }

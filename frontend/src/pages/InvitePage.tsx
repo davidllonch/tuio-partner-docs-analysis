@@ -4,17 +4,20 @@ import { useTranslation } from 'react-i18next'
 import { AlertCircle, Building2, User, MapPin, Globe } from 'lucide-react'
 import { useInvitationByToken } from '../hooks/useInvitations'
 import { StructuredDocumentUploader, type StructuredSubmitPayload } from '../components/submit/StructuredDocumentUploader'
+import { PartnerInfoStep } from '../components/submit/PartnerInfoStep'
 import { getRequiredSlots } from '../lib/documentRequirements'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
 import { createSubmission } from '../lib/api'
 import { PROVIDER_TYPE_LABELS, ENTITY_TYPE_LABELS } from '../lib/types'
+import type { PartnerInfo } from '../lib/types'
 
 export function InvitePage() {
   const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { data: invitation, isLoading, isError, error } = useInvitationByToken(token!)
+  const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -46,6 +49,10 @@ export function InvitePage() {
         formData.append('not_applicable_slots', JSON.stringify(payload.notApplicableSlots))
       }
 
+      if (partnerInfo) {
+        formData.append('partner_info', JSON.stringify(partnerInfo))
+      }
+
       await createSubmission(formData)
       navigate('/thank-you')
     } catch {
@@ -75,6 +82,21 @@ export function InvitePage() {
       </div>
     )
   }
+
+  // Step indicator
+  const StepIndicator = () => (
+    <div className="flex items-center gap-2 px-8 pt-6 pb-4 border-b border-gray-100">
+      <div className={`flex items-center gap-1.5 text-xs font-medium ${partnerInfo === null ? 'text-primary-600' : 'text-gray-400'}`}>
+        <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${partnerInfo === null ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'}`}>1</span>
+        {t('invite.step1')}
+      </div>
+      <div className="flex-1 h-px bg-gray-200" />
+      <div className={`flex items-center gap-1.5 text-xs font-medium ${partnerInfo !== null ? 'text-primary-600' : 'text-gray-400'}`}>
+        <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${partnerInfo !== null ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'}`}>2</span>
+        {t('invite.step2')}
+      </div>
+    </div>
+  )
 
   return (
     <div className="relative min-h-screen bg-gray-50 flex flex-col">
@@ -108,18 +130,11 @@ export function InvitePage() {
                 </p>
               </div>
 
-              <div className="px-8 py-7 space-y-6">
-                {/* Error banner */}
-                {submitError && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-red-700">{submitError}</p>
-                    </div>
-                  </div>
-                )}
+              {/* Step indicator */}
+              <StepIndicator />
 
-                {/* Company info card (read-only) */}
+              {/* Company info card (read-only) */}
+              <div className="px-8 pt-5">
                 <div className="rounded-xl bg-gray-50 border border-gray-200 p-5">
                   <h2 className="text-sm font-semibold text-gray-700 mb-3">
                     {t('invite.companyInfo')}
@@ -143,15 +158,41 @@ export function InvitePage() {
                     </div>
                   </div>
                 </div>
-
-                {/* Document uploader */}
-                <StructuredDocumentUploader
-                  slots={getRequiredSlots(invitation.provider_type, invitation.entity_type)}
-                  providerType={invitation.provider_type}
-                  onSubmit={handleStructuredSubmit}
-                  isSubmitting={isSubmitting}
-                />
               </div>
+
+              {/* Error banner */}
+              {submitError && (
+                <div className="px-8 pt-4">
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-red-700">{submitError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 1: Partner info form */}
+              {partnerInfo === null && (
+                <PartnerInfoStep
+                  entityType={invitation.entity_type}
+                  onContinue={setPartnerInfo}
+                />
+              )}
+
+              {/* Step 2: Document uploader */}
+              {partnerInfo !== null && (
+                <div className="px-8 py-7">
+                  <StructuredDocumentUploader
+                    slots={getRequiredSlots(invitation.provider_type, invitation.entity_type)}
+                    providerType={invitation.provider_type}
+                    entityType={invitation.entity_type}
+                    partnerInfo={partnerInfo}
+                    onSubmit={handleStructuredSubmit}
+                    isSubmitting={isSubmitting}
+                  />
+                </div>
+              )}
             </div>
           )}
 

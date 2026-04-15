@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, LogOut, Calendar, MapPin, Building2, User } from 'lucide-react'
+import { ArrowLeft, LogOut, Calendar, MapPin, Building2, User, ClipboardList } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSubmission } from '../hooks/useSubmissions'
 import { useCurrentAnalyst, useLogout } from '../hooks/useAuth'
@@ -122,6 +122,43 @@ export function SubmissionDetailPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Partner information card */}
+              {submission.partner_info && (() => {
+                let info: Record<string, string> = {}
+                try { info = JSON.parse(submission.partner_info) } catch { return null }
+                const isPJ = info.entity_type === 'PJ'
+                const fields = isPJ
+                  ? [
+                      { key: 'razon_social', label: t('partnerInfo.razon_social') },
+                      { key: 'cif', label: t('partnerInfo.cif') },
+                      { key: 'domicilio_social', label: t('partnerInfo.domicilio_social') },
+                      { key: 'nombre_representante', label: t('partnerInfo.nombre_representante') },
+                      { key: 'nif_representante', label: t('partnerInfo.nif_representante') },
+                    ]
+                  : [
+                      { key: 'nombre_apellidos', label: t('partnerInfo.nombre_apellidos') },
+                      { key: 'nif', label: t('partnerInfo.nif') },
+                      { key: 'domicilio', label: t('partnerInfo.domicilio') },
+                    ]
+
+                return (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <ClipboardList className="h-4 w-4 text-gray-400" />
+                      <h3 className="text-sm font-semibold text-gray-700">{t('detail.partnerInfo')}</h3>
+                    </div>
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                      {fields.map(({ key, label }) => (
+                        <div key={key}>
+                          <dt className="text-xs text-gray-500">{label}</dt>
+                          <dd className="mt-0.5 text-sm text-gray-900 font-medium">{info[key] || '—'}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                )
+              })()}
 
               {/* AI analysis report */}
               <AIReportPanel

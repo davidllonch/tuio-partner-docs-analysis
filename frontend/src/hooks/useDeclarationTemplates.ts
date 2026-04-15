@@ -5,10 +5,10 @@ import {
   uploadDeclarationTemplate,
 } from '../lib/api'
 
-export function useDeclarationTemplateStatus(providerType: string) {
+export function useDeclarationTemplateStatus(providerType: string, entityType: string) {
   return useQuery({
-    queryKey: ['declaration-template', providerType],
-    queryFn: () => fetchDeclarationTemplateInfo(providerType),
+    queryKey: ['declaration-template', providerType, entityType],
+    queryFn: () => fetchDeclarationTemplateInfo(providerType, entityType),
     retry: false,
     staleTime: 30_000,
   })
@@ -25,10 +25,19 @@ export function useAllDeclarationTemplates() {
 export function useUploadDeclarationTemplate() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ providerType, file }: { providerType: string; file: File }) =>
-      uploadDeclarationTemplate(providerType, file),
-    onSuccess: (_data, { providerType }) => {
-      queryClient.invalidateQueries({ queryKey: ['declaration-template', providerType] })
+    mutationFn: ({
+      providerType,
+      entityType,
+      file,
+    }: {
+      providerType: string
+      entityType: string
+      file: File
+    }) => uploadDeclarationTemplate(providerType, entityType, file),
+    onSuccess: (_data, { providerType, entityType }) => {
+      queryClient.invalidateQueries({
+        queryKey: ['declaration-template', providerType, entityType],
+      })
       queryClient.invalidateQueries({ queryKey: ['declaration-templates-all'] })
     },
   })

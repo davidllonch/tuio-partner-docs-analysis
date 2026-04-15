@@ -29,6 +29,7 @@ class Submission(Base):
     )
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     not_applicable_slots: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    partner_info: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     invitation_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("invitations.id", ondelete="SET NULL"),

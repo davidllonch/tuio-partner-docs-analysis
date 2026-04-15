@@ -61,6 +61,7 @@ class SubmissionDetail(BaseModel):
     ai_model_used: Optional[str]
     email_sent_at: Optional[datetime]
     error_message: Optional[str]
+    partner_info: Optional[str]
     documents: List[DocumentOut]
     analyses: List[AnalysisSummaryOut]
 

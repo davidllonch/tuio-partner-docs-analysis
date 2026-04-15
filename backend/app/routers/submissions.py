@@ -258,6 +258,7 @@ async def create_submission(
     labels: List[str] = Form(...),
     invitation_token: Optional[str] = Form(None),
     not_applicable_slots: Optional[str] = Form(None),
+    partner_info: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
@@ -374,6 +375,7 @@ async def create_submission(
         status="pending",
         invitation_id=invitation.id if invitation else None,
         not_applicable_slots=not_applicable_slots,
+        partner_info=partner_info,
     )
     db.add(submission)
     await db.flush()

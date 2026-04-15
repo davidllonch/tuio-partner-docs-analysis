@@ -80,7 +80,8 @@
     "triggeredBy": "Iniciado por",
     "triggeredByAnalyst": "Analista",
     "triggeredByPartner": "Partner",
-    "submitted": "Enviado"
+    "submitted": "Enviado",
+    "partnerInfo": "Información del Partner"
   },
   "team": {
     "title": "Equipo",
@@ -178,19 +179,34 @@
     "alreadyUsed": "Esta invitación ya ha sido utilizada.",
     "expired": "Este enlace de invitación ha caducado. Contacta con tu gestor de cuenta.",
     "submitError": "Algo ha ido mal. Inténtalo de nuevo o contacta con soporte.",
-    "privacyNote": "Tu información se trata de acuerdo con la normativa de protección de datos aplicable."
+    "privacyNote": "Tu información se trata de acuerdo con la normativa de protección de datos aplicable.",
+    "step1": "Paso 1: Tu Información",
+    "step2": "Paso 2: Subir Documentos"
   },
   "declarationTemplates": {
     "title": "Templates de Declaraciones",
-    "subtitle": "Gestiona los documentos de declaraciones que los partners deben firmar y devolver para cada tipo.",
-    "uploadPdf": "Subir PDF",
-    "replacePdf": "Sustituir PDF",
+    "subtitle": "Gestiona los documentos de declaración (DOCX) que los partners deben firmar y devolver. Uno por tipo de partner y tipo de entidad.",
+    "uploadDocx": "Subir DOCX",
+    "replaceDocx": "Sustituir DOCX",
     "uploadSuccess": "Template subido correctamente.",
     "uploadError": "No se ha podido subir el template. Por favor, inténtalo de nuevo.",
-    "errorNotPdf": "Solo se aceptan archivos PDF.",
+    "errorNotDocx": "Solo se aceptan archivos DOCX.",
     "noTemplate": "Ningún template subido todavía.",
     "uploadedBy": "Subido por {{name}} el {{date}}",
     "unknownAnalyst": "analista desconocido"
+  },
+  "partnerInfo": {
+    "title": "Tu Información",
+    "subtitle": "Necesitamos algunos datos para personalizar tu documento de declaración.",
+    "continue": "Continuar a la Subida de Documentos",
+    "razon_social": "Razón Social de la Empresa",
+    "cif": "NIF/CIF de la Empresa",
+    "domicilio_social": "Domicilio Social de la Empresa",
+    "nombre_representante": "Nombre y Apellidos del Representante Legal",
+    "nif_representante": "NIF del Representante Legal",
+    "nombre_apellidos": "Nombre y Apellidos",
+    "nif": "NIF",
+    "domicilio": "Domicilio"
   },
   "structuredUpload": {
     "required": "Obligatorio",

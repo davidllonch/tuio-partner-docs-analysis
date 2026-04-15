@@ -80,7 +80,8 @@
     "triggeredBy": "Triggered By",
     "triggeredByAnalyst": "Analyst",
     "triggeredByPartner": "Partner",
-    "submitted": "Submitted"
+    "submitted": "Submitted",
+    "partnerInfo": "Partner Information"
   },
   "team": {
     "title": "Team",
@@ -178,19 +179,34 @@
     "alreadyUsed": "This invitation has already been used.",
     "expired": "This invitation link has expired. Please contact your account manager.",
     "submitError": "Something went wrong. Please try again or contact support.",
-    "privacyNote": "Your information is handled in accordance with applicable data protection regulations."
+    "privacyNote": "Your information is handled in accordance with applicable data protection regulations.",
+    "step1": "Step 1: Your Information",
+    "step2": "Step 2: Upload Documents"
   },
   "declarationTemplates": {
     "title": "Declaration Templates",
-    "subtitle": "Manage the declaration documents that partners must sign and return for each partner type.",
-    "uploadPdf": "Upload PDF",
-    "replacePdf": "Replace PDF",
+    "subtitle": "Manage the declaration documents (DOCX) that partners must sign and return. One per partner type and entity type.",
+    "uploadDocx": "Upload DOCX",
+    "replaceDocx": "Replace DOCX",
     "uploadSuccess": "Template uploaded successfully.",
     "uploadError": "Could not upload the template. Please try again.",
-    "errorNotPdf": "Only PDF files are accepted.",
+    "errorNotDocx": "Only DOCX files are accepted.",
     "noTemplate": "No template uploaded yet.",
     "uploadedBy": "Uploaded by {{name}} on {{date}}",
     "unknownAnalyst": "unknown analyst"
+  },
+  "partnerInfo": {
+    "title": "Your Information",
+    "subtitle": "We need a few details to personalise your declaration document.",
+    "continue": "Continue to Document Upload",
+    "razon_social": "Company Name (Razón Social)",
+    "cif": "Company NIF/CIF",
+    "domicilio_social": "Registered Address (Domicilio Social)",
+    "nombre_representante": "Legal Representative Name",
+    "nif_representante": "Legal Representative NIF",
+    "nombre_apellidos": "Full Name (Nombre y Apellidos)",
+    "nif": "NIF",
+    "domicilio": "Address (Domicilio)"
   },
   "structuredUpload": {
     "required": "Required",

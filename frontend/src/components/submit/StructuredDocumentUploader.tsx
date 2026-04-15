@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckSquare, Square, Upload, FileText, X, Download, AlertCircle } from 'lucide-react'
+import { CheckSquare, Square, Upload, FileText, X, Download, AlertCircle, Loader2 } from 'lucide-react'
 import { useDeclarationTemplateStatus } from '../../hooks/useDeclarationTemplates'
-import { getDeclarationTemplateDownloadUrl } from '../../lib/api'
+import { generateDeclarationPdf } from '../../lib/api'
 import type { DocumentSlot } from '../../lib/documentRequirements'
+import type { PartnerInfo } from '../../lib/types'
 
 export interface StructuredSubmitPayload {
   files: Array<{ file: File; slotId: string; label: string }>
@@ -32,33 +33,69 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+// ── Declaration download button — generates a personalised PDF ─────────────────
+
 interface DeclarationDownloadButtonProps {
   providerType: string
-  label: string
+  entityType: string
+  partnerInfo: PartnerInfo
 }
 
-function DeclarationDownloadButton({ providerType, label: _label }: DeclarationDownloadButtonProps) {
+function DeclarationDownloadButton({
+  providerType,
+  entityType,
+  partnerInfo,
+}: DeclarationDownloadButtonProps) {
   const { t } = useTranslation()
-  const { data, isLoading } = useDeclarationTemplateStatus(providerType)
+  const { data, isLoading } = useDeclarationTemplateStatus(providerType, entityType)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   if (isLoading || !data) return null
 
+  const handleDownload = async () => {
+    setIsGenerating(true)
+    try {
+      const blob = await generateDeclarationPdf(providerType, entityType, partnerInfo)
+      const url = window.URL.createObjectURL(blob)
+      const anchor = window.document.createElement('a')
+      anchor.href = url
+      anchor.download = 'declaracion.pdf'
+      window.document.body.appendChild(anchor)
+      anchor.click()
+      window.document.body.removeChild(anchor)
+      window.URL.revokeObjectURL(url)
+    } catch {
+      // Silently fail — the user can retry
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   return (
-    <a
-      href={getDeclarationTemplateDownloadUrl(providerType)}
-      download
-      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-800 transition-colors"
+    <button
+      type="button"
+      onClick={handleDownload}
+      disabled={isGenerating}
+      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-800 transition-colors disabled:opacity-50"
     >
-      <Download className="h-3.5 w-3.5" />
+      {isGenerating ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Download className="h-3.5 w-3.5" />
+      )}
       {t('structuredUpload.downloadTemplate')}
-    </a>
+    </button>
   )
 }
+
+// ── Single slot ────────────────────────────────────────────────────────────────
 
 interface SingleSlotProps {
   slot: DocumentSlot
   state: SlotState
   providerType: string
+  entityType: string
+  partnerInfo: PartnerInfo
   showValidation: boolean
   onFileChange: (slotId: string, file: File | null) => void
   onNotApplicableChange: (slotId: string, value: boolean) => void
@@ -68,6 +105,8 @@ function SingleSlot({
   slot,
   state,
   providerType,
+  entityType,
+  partnerInfo,
   showValidation,
   onFileChange,
   onNotApplicableChange,
@@ -98,7 +137,6 @@ function SingleSlot({
     if (!f) return
     if (f.size > MAX_FILE_SIZE_BYTES) return
     onFileChange(slot.id, f)
-    // Reset so the same file can be re-selected
     e.target.value = ''
   }
 
@@ -122,7 +160,11 @@ function SingleSlot({
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {slot.hasDeclarationTemplate && (
-            <DeclarationDownloadButton providerType={providerType} label={slot.label} />
+            <DeclarationDownloadButton
+              providerType={providerType}
+              entityType={entityType}
+              partnerInfo={partnerInfo}
+            />
           )}
           {isRequired && (
             <span className="text-xs text-red-500 font-medium">{t('structuredUpload.required')}</span>
@@ -200,10 +242,13 @@ function SingleSlot({
   )
 }
 
+// ── Main component ─────────────────────────────────────────────────────────────
 
 interface StructuredDocumentUploaderProps {
   slots: DocumentSlot[]
   providerType: string
+  entityType: string
+  partnerInfo: PartnerInfo
   onSubmit: (payload: StructuredSubmitPayload) => void
   isSubmitting: boolean
 }
@@ -211,6 +256,8 @@ interface StructuredDocumentUploaderProps {
 export function StructuredDocumentUploader({
   slots,
   providerType,
+  entityType,
+  partnerInfo,
   onSubmit,
   isSubmitting,
 }: StructuredDocumentUploaderProps) {
@@ -288,6 +335,8 @@ export function StructuredDocumentUploader({
           slot={slot}
           state={slotStates[slot.id] ?? { file: null, notApplicable: false, error: null }}
           providerType={providerType}
+          entityType={entityType}
+          partnerInfo={partnerInfo}
           showValidation={showValidation}
           onFileChange={handleFileChange}
           onNotApplicableChange={handleNotApplicableChange}
