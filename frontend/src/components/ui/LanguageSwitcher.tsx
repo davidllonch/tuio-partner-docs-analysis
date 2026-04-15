@@ -13,17 +13,16 @@ export function LanguageSwitcher() {
     <div className="flex items-center gap-2">
       <button
         onClick={() => toggle('es')}
-        title="Español"
-        className={`text-xl leading-none transition-opacity ${current === 'es' ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+        className={`text-sm font-medium transition-colors ${current === 'es' ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600'}`}
       >
-        🇪🇸
+        Castellano
       </button>
+      <span className="text-gray-300 text-sm">|</span>
       <button
         onClick={() => toggle('en')}
-        title="English"
-        className={`text-xl leading-none transition-opacity ${current === 'en' ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+        className={`text-sm font-medium transition-colors ${current === 'en' ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600'}`}
       >
-        🇬🇧
+        English
       </button>
     </div>
   )
