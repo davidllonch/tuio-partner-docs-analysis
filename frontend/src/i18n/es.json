@@ -2,7 +2,8 @@
   "nav": {
     "submissions": "Expedientes",
     "invitations": "Invitaciones",
-    "team": "Equipo"
+    "team": "Equipo",
+    "declarationTemplates": "Templates de Declaraciones"
   },
   "auth": {
     "title": "Acceso de analistas",
@@ -178,5 +179,29 @@
     "expired": "Este enlace de invitación ha caducado. Contacta con tu gestor de cuenta.",
     "submitError": "Algo ha ido mal. Inténtalo de nuevo o contacta con soporte.",
     "privacyNote": "Tu información se trata de acuerdo con la normativa de protección de datos aplicable."
+  },
+  "declarationTemplates": {
+    "title": "Templates de Declaraciones",
+    "subtitle": "Gestiona los documentos de declaraciones que los partners deben firmar y devolver para cada tipo.",
+    "uploadPdf": "Subir PDF",
+    "replacePdf": "Sustituir PDF",
+    "uploadSuccess": "Template subido correctamente.",
+    "uploadError": "No se ha podido subir el template. Por favor, inténtalo de nuevo.",
+    "errorNotPdf": "Solo se aceptan archivos PDF.",
+    "noTemplate": "Ningún template subido todavía.",
+    "uploadedBy": "Subido por {{name}} el {{date}}",
+    "unknownAnalyst": "analista desconocido"
+  },
+  "structuredUpload": {
+    "required": "Obligatorio",
+    "conditional": "Si procede",
+    "notApplicable": "Esto no me aplica",
+    "notApplicableDeclared": "Declarado como no aplicable",
+    "undoNotApplicable": "Deshacer",
+    "downloadTemplate": "Descargar plantilla de declaraciones",
+    "clickOrDrop": "Haz clic o arrastra el archivo aquí",
+    "missingRequired": "Este documento es obligatorio",
+    "removeFile": "Eliminar archivo",
+    "validationError": "Por favor, sube todos los documentos obligatorios antes de enviar."
   }
 }

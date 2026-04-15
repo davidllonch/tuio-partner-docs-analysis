@@ -9,6 +9,7 @@ import { SubmissionDetailPage } from './pages/SubmissionDetailPage'
 import { TeamPage } from './pages/TeamPage'
 import { InvitationsPage } from './pages/InvitationsPage'
 import { InvitePage } from './pages/InvitePage'
+import { DeclarationTemplatesPage } from './pages/DeclarationTemplatesPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,7 @@ export function App() {
               <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
               <Route path="/team" element={<TeamPage />} />
               <Route path="/invitations" element={<InvitationsPage />} />
+              <Route path="/declaration-templates" element={<DeclarationTemplatesPage />} />
             </Route>
 
             {/* Catch-all: redirect unknown URLs to login */}

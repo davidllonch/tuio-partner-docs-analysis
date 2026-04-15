@@ -12,6 +12,7 @@ from app.routers import auth as auth_router
 from app.routers import submissions as submissions_router
 from app.routers import analysts as analysts_router
 from app.routers import invitations as invitations_router
+from app.routers import declaration_templates as declaration_templates_router
 from app.services.cleanup import create_cleanup_scheduler
 
 # Configure structured logging for the entire application
@@ -93,6 +94,7 @@ app.include_router(auth_router.router, prefix="/api")
 app.include_router(submissions_router.router, prefix="/api")
 app.include_router(analysts_router.router, prefix="/api")
 app.include_router(invitations_router.router, prefix="/api")
+app.include_router(declaration_templates_router.router, prefix="/api")
 
 
 # ── Health check (public, no auth required) ──────────────────────────────────

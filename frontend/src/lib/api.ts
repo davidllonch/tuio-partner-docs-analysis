@@ -191,3 +191,52 @@ export async function fetchInvitationByToken(token: string): Promise<InvitationP
 export async function cancelInvitation(id: string): Promise<void> {
   await apiClient.delete(`/api/invitations/${id}`)
 }
+
+// --- Declaration Templates ---
+
+export interface DeclarationTemplateInfo {
+  provider_type: string
+  provider_type_label: string
+  original_filename: string
+  uploaded_at: string
+  uploaded_by_name: string | null
+}
+
+export interface AllDeclarationTemplatesResponse {
+  templates: DeclarationTemplateInfo[]
+}
+
+export async function fetchDeclarationTemplateInfo(
+  providerType: string
+): Promise<{ provider_type: string; original_filename: string; uploaded_at: string } | null> {
+  try {
+    const response = await apiClient.get(`/api/declaration-templates/${providerType}`)
+    return response.data
+  } catch {
+    return null
+  }
+}
+
+export async function fetchAllDeclarationTemplates(): Promise<AllDeclarationTemplatesResponse> {
+  const response = await apiClient.get<AllDeclarationTemplatesResponse>('/api/declaration-templates')
+  return response.data
+}
+
+export async function uploadDeclarationTemplate(
+  providerType: string,
+  file: File
+): Promise<DeclarationTemplateInfo> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await apiClient.put<DeclarationTemplateInfo>(
+    `/api/declaration-templates/${providerType}`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return response.data
+}
+
+export function getDeclarationTemplateDownloadUrl(providerType: string): string {
+  const base = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}` : ''
+  return `${base}/api/declaration-templates/${providerType}/download`
+}

@@ -2,7 +2,8 @@
   "nav": {
     "submissions": "Submissions",
     "invitations": "Invitations",
-    "team": "Team"
+    "team": "Team",
+    "declarationTemplates": "Declaration Templates"
   },
   "auth": {
     "title": "Analyst Login",
@@ -178,5 +179,29 @@
     "expired": "This invitation link has expired. Please contact your account manager.",
     "submitError": "Something went wrong. Please try again or contact support.",
     "privacyNote": "Your information is handled in accordance with applicable data protection regulations."
+  },
+  "declarationTemplates": {
+    "title": "Declaration Templates",
+    "subtitle": "Manage the declaration documents that partners must sign and return for each partner type.",
+    "uploadPdf": "Upload PDF",
+    "replacePdf": "Replace PDF",
+    "uploadSuccess": "Template uploaded successfully.",
+    "uploadError": "Could not upload the template. Please try again.",
+    "errorNotPdf": "Only PDF files are accepted.",
+    "noTemplate": "No template uploaded yet.",
+    "uploadedBy": "Uploaded by {{name}} on {{date}}",
+    "unknownAnalyst": "unknown analyst"
+  },
+  "structuredUpload": {
+    "required": "Required",
+    "conditional": "If applicable",
+    "notApplicable": "This does not apply to me",
+    "notApplicableDeclared": "Declared as not applicable",
+    "undoNotApplicable": "Undo",
+    "downloadTemplate": "Download declaration template",
+    "clickOrDrop": "Click or drag file here",
+    "missingRequired": "This document is required",
+    "removeFile": "Remove file",
+    "validationError": "Please upload all required documents before submitting."
   }
 }

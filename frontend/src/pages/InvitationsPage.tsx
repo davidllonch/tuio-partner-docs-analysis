@@ -325,6 +325,12 @@ export function InvitationsPage() {
                 >
                   {t('nav.team')}
                 </Link>
+                <Link
+                  to="/declaration-templates"
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  {t('nav.declarationTemplates')}
+                </Link>
               </nav>
             </div>
 

@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle, Building2, User, MapPin, Globe } from 'lucide-react'
 import { useInvitationByToken } from '../hooks/useInvitations'
-import { DocumentUploader, type FileEntry } from '../components/submit/DocumentUploader'
+import { StructuredDocumentUploader, type StructuredSubmitPayload } from '../components/submit/StructuredDocumentUploader'
+import { getRequiredSlots } from '../lib/documentRequirements'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
 import { createSubmission } from '../lib/api'
@@ -14,7 +15,6 @@ export function InvitePage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { data: invitation, isLoading, isError, error } = useInvitationByToken(token!)
-  const [files, setFiles] = useState<FileEntry[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -24,7 +24,7 @@ export function InvitePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const errorDetail = (error as any)?.response?.data?.detail
 
-  const handleSubmit = async () => {
+  const handleStructuredSubmit = async (payload: StructuredSubmitPayload) => {
     if (!invitation) return
     setIsSubmitting(true)
     setSubmitError(null)
@@ -32,17 +32,19 @@ export function InvitePage() {
     try {
       const formData = new FormData()
       formData.append('invitation_token', token!)
-      // provider info comes from the invitation (backend will use it)
-      // we still need to send these for backwards compat with the form validation
       formData.append('provider_name', invitation.provider_name)
       formData.append('provider_type', invitation.provider_type)
       formData.append('entity_type', invitation.entity_type)
       formData.append('country', invitation.country)
 
-      files.forEach((entry) => {
-        formData.append('files', entry.file)
-        formData.append('labels', entry.label)
+      payload.files.forEach(({ file, label }) => {
+        formData.append('files', file)
+        formData.append('labels', label)
       })
+
+      if (payload.notApplicableSlots.length > 0) {
+        formData.append('not_applicable_slots', JSON.stringify(payload.notApplicableSlots))
+      }
 
       await createSubmission(formData)
       navigate('/thank-you')
@@ -143,13 +145,11 @@ export function InvitePage() {
                 </div>
 
                 {/* Document uploader */}
-                <DocumentUploader
-                  files={files}
-                  onChange={setFiles}
-                  onSubmit={handleSubmit}
+                <StructuredDocumentUploader
+                  slots={getRequiredSlots(invitation.provider_type, invitation.entity_type)}
+                  providerType={invitation.provider_type}
+                  onSubmit={handleStructuredSubmit}
                   isSubmitting={isSubmitting}
-                  hideBackButton
-                  autoLabel
                 />
               </div>
             </div>

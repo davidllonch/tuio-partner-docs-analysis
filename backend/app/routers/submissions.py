@@ -257,6 +257,7 @@ async def create_submission(
     files: List[UploadFile] = File(...),
     labels: List[str] = Form(...),
     invitation_token: Optional[str] = Form(None),
+    not_applicable_slots: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
@@ -372,6 +373,7 @@ async def create_submission(
         country=country,
         status="pending",
         invitation_id=invitation.id if invitation else None,
+        not_applicable_slots=not_applicable_slots,
     )
     db.add(submission)
     await db.flush()
