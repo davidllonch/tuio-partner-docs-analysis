@@ -24,6 +24,13 @@ const ENTITY_TYPES = [
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
+function isDocxFile(file: File): boolean {
+  // Some browsers/OS return an empty or wrong MIME type for DOCX — fall back to extension
+  if (file.type === DOCX_MIME) return true
+  if (file.name.toLowerCase().endsWith('.docx')) return true
+  return false
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('es-ES', {
     day: '2-digit',
@@ -46,7 +53,7 @@ export function DeclarationTemplatesPage() {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const handleUpload = (providerType: string, entityType: string, file: File) => {
-    if (file.type !== DOCX_MIME) {
+    if (!isDocxFile(file)) {
       toast({ title: t('declarationTemplates.errorNotDocx'), variant: 'error' })
       return
     }

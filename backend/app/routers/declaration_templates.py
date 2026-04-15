@@ -480,7 +480,10 @@ async def upload_template(
             detail="entity_type must be 'PF' or 'PJ'",
         )
 
-    if file.content_type != DOCX_MIME_TYPE:
+    filename_lower = (file.filename or "").lower()
+    content_type_ok = file.content_type == DOCX_MIME_TYPE
+    extension_ok = filename_lower.endswith(".docx")
+    if not content_type_ok and not extension_ok:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Only DOCX files are accepted for declaration templates",
