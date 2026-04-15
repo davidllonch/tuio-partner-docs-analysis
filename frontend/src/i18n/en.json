@@ -68,7 +68,17 @@
     "reanalyseSubmit": "Run analysis",
     "reanalyseRunning": "Running…",
     "reanalyseSuccess": "Analysis complete",
-    "noDocuments": "No documents attached."
+    "noDocuments": "No documents attached.",
+    "reanalyseHint": "Use this if the partner selected the wrong provider type, or to run the analysis with a different AI model.",
+    "originalType": "Original type submitted by partner",
+    "loadingModels": "Loading models…",
+    "noModels": "No models available",
+    "reanalyseAndSend": "Re-analyse & Send Email",
+    "analysisHistory": "Analysis History",
+    "triggeredBy": "Triggered By",
+    "triggeredByAnalyst": "Analyst",
+    "triggeredByPartner": "Partner",
+    "submitted": "Submitted"
   },
   "team": {
     "title": "Team",
@@ -116,7 +126,15 @@
     "submit": "Submit documents",
     "submitting": "Submitting…",
     "dragDrop": "Drag & drop or click to upload",
-    "fileTypes": "PDF, JPEG, PNG or DOCX · max 20 MB per file"
+    "fileTypes": "PDF, JPEG, PNG or DOCX · max 20 MB per file",
+    "selectProviderType": "Select a provider type…",
+    "providerNamePlaceholder": "Company or individual name",
+    "countryPlaceholder": "Country of domicile",
+    "next": "Next",
+    "entityPJ": "Legal Entity",
+    "entityPJDesc": "Persona Jurídica — a company or organisation",
+    "entityPF": "Physical Person",
+    "entityPFDesc": "Persona Física — an individual"
   },
   "thankyou": {
     "title": "Documents received",

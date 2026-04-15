@@ -83,13 +83,13 @@ export function ReanalysePanel({
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">{t('detail.reanalyseTitle')}</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Use this if the partner selected the wrong provider type, or to use a different AI model.
+            {t('detail.reanalyseHint')}
           </p>
         </div>
 
         <div className="p-5 space-y-4">
           <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2.5">
-            <p className="text-xs text-gray-500">Original type submitted by partner</p>
+            <p className="text-xs text-gray-500">{t('detail.originalType')}</p>
             <p className="text-sm font-medium text-gray-800 mt-0.5">
               {PROVIDER_TYPE_LABELS[currentProviderType]}
             </p>
@@ -132,10 +132,10 @@ export function ReanalysePanel({
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-60"
             >
               {modelsLoading && (
-                <option value="">Loading models…</option>
+                <option value="">{t('detail.loadingModels')}</option>
               )}
               {!modelsLoading && models.length === 0 && (
-                <option value="">No models available</option>
+                <option value="">{t('detail.noModels')}</option>
               )}
               {models.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -158,7 +158,7 @@ export function ReanalysePanel({
             ) : (
               <>
                 <RefreshCw className="h-4 w-4" />
-                {t('detail.reanalyse')} &amp; Send Email
+                {t('detail.reanalyseAndSend')}
               </>
             )}
           </button>
@@ -169,7 +169,7 @@ export function ReanalysePanel({
       {analyses.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-base font-semibold text-gray-900">Analysis History</h2>
+            <h2 className="text-base font-semibold text-gray-900">{t('detail.analysisHistory')}</h2>
           </div>
 
           <div className="overflow-x-auto">
@@ -183,7 +183,7 @@ export function ReanalysePanel({
                     {t('submission.table.type')}
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    Triggered By
+                    {t('detail.triggeredBy')}
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     {t('detail.reanalyseModel')}
@@ -207,7 +207,7 @@ export function ReanalysePanel({
                             : 'bg-gray-100 text-gray-600'
                         }`}
                       >
-                        {analysis.triggered_by === 'analyst' ? 'Analyst' : 'Partner'}
+                        {analysis.triggered_by === 'analyst' ? t('detail.triggeredByAnalyst') : t('detail.triggeredByPartner')}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap font-mono">

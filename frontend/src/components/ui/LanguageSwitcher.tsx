@@ -10,19 +10,20 @@ export function LanguageSwitcher() {
   }
 
   return (
-    <div className="flex items-center gap-1 text-sm font-medium">
+    <div className="flex items-center gap-2">
       <button
         onClick={() => toggle('es')}
-        className={current === 'es' ? 'text-primary-600 font-semibold' : 'text-gray-400 hover:text-gray-600 transition-colors'}
+        title="Español"
+        className={`text-xl leading-none transition-opacity ${current === 'es' ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
       >
-        ES
+        🇪🇸
       </button>
-      <span className="text-gray-300">|</span>
       <button
         onClick={() => toggle('en')}
-        className={current === 'en' ? 'text-primary-600 font-semibold' : 'text-gray-400 hover:text-gray-600 transition-colors'}
+        title="English"
+        className={`text-xl leading-none transition-opacity ${current === 'en' ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
       >
-        EN
+        🇬🇧
       </button>
     </div>
   )

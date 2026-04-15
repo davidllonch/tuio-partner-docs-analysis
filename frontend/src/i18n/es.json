@@ -68,7 +68,17 @@
     "reanalyseSubmit": "Ejecutar análisis",
     "reanalyseRunning": "Ejecutando…",
     "reanalyseSuccess": "Análisis completado",
-    "noDocuments": "No hay documentos adjuntos."
+    "noDocuments": "No hay documentos adjuntos.",
+    "reanalyseHint": "Usa esto si el partner seleccionó el tipo incorrecto o para ejecutar el análisis con un modelo de IA diferente.",
+    "originalType": "Tipo original enviado por el partner",
+    "loadingModels": "Cargando modelos…",
+    "noModels": "No hay modelos disponibles",
+    "reanalyseAndSend": "Reanalizar y enviar email",
+    "analysisHistory": "Historial de análisis",
+    "triggeredBy": "Iniciado por",
+    "triggeredByAnalyst": "Analista",
+    "triggeredByPartner": "Partner",
+    "submitted": "Enviado"
   },
   "team": {
     "title": "Equipo",
@@ -116,7 +126,15 @@
     "submit": "Enviar documentos",
     "submitting": "Enviando…",
     "dragDrop": "Arrastra y suelta o haz clic para subir",
-    "fileTypes": "PDF, JPEG, PNG o DOCX · máx. 20 MB por archivo"
+    "fileTypes": "PDF, JPEG, PNG o DOCX · máx. 20 MB por archivo",
+    "selectProviderType": "Selecciona un tipo de partner…",
+    "providerNamePlaceholder": "Nombre de la empresa o persona",
+    "countryPlaceholder": "País de domicilio",
+    "next": "Siguiente",
+    "entityPJ": "Persona Jurídica",
+    "entityPJDesc": "Empresa u organización",
+    "entityPF": "Persona Física",
+    "entityPFDesc": "Un individuo"
   },
   "thankyou": {
     "title": "Documentos recibidos",

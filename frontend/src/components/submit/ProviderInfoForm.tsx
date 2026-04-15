@@ -21,29 +21,20 @@ interface ProviderInfoFormProps {
   onSubmit: (values: ProviderInfoFormValues) => void
 }
 
-const PROVIDER_TYPE_OPTIONS: { value: ProviderType; label: string }[] = [
-  { value: 'correduria_seguros', label: 'Correduría de Seguros' },
-  { value: 'agencia_seguros', label: 'Agencia de Seguros' },
-  { value: 'colaborador_externo', label: 'Colaborador Externo' },
-  { value: 'generador_leads', label: 'Generador de Leads' },
-]
-
-const ENTITY_TYPE_OPTIONS: { value: EntityType; label: string; description: string }[] =
-  [
-    {
-      value: 'PJ',
-      label: 'Legal Entity',
-      description: 'Persona Jurídica — a company or organisation',
-    },
-    {
-      value: 'PF',
-      label: 'Physical Person',
-      description: 'Persona Física — an individual',
-    },
-  ]
-
 export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormProps) {
   const { t } = useTranslation()
+
+  const PROVIDER_TYPE_OPTIONS: { value: ProviderType; label: string }[] = [
+    { value: 'correduria_seguros', label: 'Correduría de Seguros' },
+    { value: 'agencia_seguros', label: 'Agencia de Seguros' },
+    { value: 'colaborador_externo', label: 'Colaborador Externo' },
+    { value: 'generador_leads', label: 'Generador de Leads' },
+  ]
+
+  const ENTITY_TYPE_OPTIONS: { value: EntityType; label: string; description: string }[] = [
+    { value: 'PJ', label: t('submit.entityPJ'), description: t('submit.entityPJDesc') },
+    { value: 'PF', label: t('submit.entityPF'), description: t('submit.entityPFDesc') },
+  ]
   const {
     register,
     handleSubmit,
@@ -73,7 +64,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
           id="provider_name"
           type="text"
           autoComplete="organization"
-          placeholder="Company or individual name"
+          placeholder={t('submit.providerNamePlaceholder')}
           className={`
             w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900
             placeholder-gray-400 shadow-sm transition-colors
@@ -107,7 +98,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
           `}
           {...register('provider_type')}
         >
-          <option value="">Select a provider type…</option>
+          <option value="">{t('submit.selectProviderType')}</option>
           {PROVIDER_TYPE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
@@ -197,7 +188,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
           id="country"
           type="text"
           autoComplete="country-name"
-          placeholder="Country of domicile"
+          placeholder={t('submit.countryPlaceholder')}
           className={`
             w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900
             placeholder-gray-400 shadow-sm transition-colors
@@ -217,7 +208,7 @@ export function ProviderInfoForm({ defaultValues, onSubmit }: ProviderInfoFormPr
         type="submit"
         className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors"
       >
-        Next
+        {t('submit.next')}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className="h-4 w-4"
