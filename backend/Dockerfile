@@ -4,7 +4,7 @@ FROM python:3.12-slim
 # - tesseract-ocr: the OCR engine that reads text from scanned images
 # - tesseract-ocr-spa: Spanish language pack for better accuracy on Spanish documents
 # - libgl1, libglib2.0-0: required by PyMuPDF (the PDF processing library)
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-spa \
     libgl1 \
@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y \
     shared-mime-info \
     fonts-liberation \
     fonts-noto-core \
+    libreoffice-writer \
+    libreoffice-java-common \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

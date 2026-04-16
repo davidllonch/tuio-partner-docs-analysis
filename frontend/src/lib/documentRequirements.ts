@@ -36,7 +36,8 @@ const DISTRIBUTOR_EXTRA_SLOTS: DocumentSlot[] = [
     isConditional: true,
     hasDeclarationTemplate: false,
   },
-  { id: 'poliza_rc', label: 'Póliza de RC profesional en vigor + justificante de pago', isConditional: false, hasDeclarationTemplate: false },
+  { id: 'poliza_rc', label: 'Póliza de RC profesional en vigor', isConditional: false, hasDeclarationTemplate: false },
+  { id: 'justificante_pago_rc', label: 'Justificante de pago de la póliza RC', isConditional: false, hasDeclarationTemplate: false },
   { id: 'cert_formacion', label: 'Certificado de formación del responsable de la distribución', isConditional: false, hasDeclarationTemplate: false },
   { id: 'declaraciones', label: 'Declaraciones firmadas del proveedor', isConditional: false, hasDeclarationTemplate: true },
 ]

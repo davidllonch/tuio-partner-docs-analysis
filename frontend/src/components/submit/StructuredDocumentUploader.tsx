@@ -33,23 +33,20 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-// ── Declaration download button — generates a personalised PDF ─────────────────
+// ── Declaration banner — prominent top-of-page call to action ─────────────────
 
-interface DeclarationDownloadButtonProps {
+interface DeclarationBannerProps {
   providerType: string
   entityType: string
   partnerInfo: PartnerInfo
 }
 
-function DeclarationDownloadButton({
-  providerType,
-  entityType,
-  partnerInfo,
-}: DeclarationDownloadButtonProps) {
+function DeclarationBanner({ providerType, entityType, partnerInfo }: DeclarationBannerProps) {
   const { t } = useTranslation()
   const { data, isLoading } = useDeclarationTemplateStatus(providerType, entityType)
   const [isGenerating, setIsGenerating] = useState(false)
 
+  // Don't render anything while loading or if no template has been uploaded yet
   if (isLoading || !data) return null
 
   const handleDownload = async () => {
@@ -72,19 +69,34 @@ function DeclarationDownloadButton({
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleDownload}
-      disabled={isGenerating}
-      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-800 transition-colors disabled:opacity-50"
-    >
-      {isGenerating ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <Download className="h-3.5 w-3.5" />
-      )}
-      {t('structuredUpload.downloadTemplate')}
-    </button>
+    <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5">
+      <div className="flex items-start gap-3">
+        <Download className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-900">
+            {t('structuredUpload.declarationBannerTitle')}
+          </p>
+          <p className="mt-1 text-sm text-amber-800 leading-relaxed">
+            {t('structuredUpload.declarationBannerInstructions')}
+          </p>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={isGenerating}
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 transition-colors disabled:opacity-60"
+          >
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {isGenerating
+              ? t('structuredUpload.declarationBannerGenerating')
+              : t('structuredUpload.declarationBannerDownload')}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -93,9 +105,6 @@ function DeclarationDownloadButton({
 interface SingleSlotProps {
   slot: DocumentSlot
   state: SlotState
-  providerType: string
-  entityType: string
-  partnerInfo: PartnerInfo
   showValidation: boolean
   onFileChange: (slotId: string, file: File | null) => void
   onNotApplicableChange: (slotId: string, value: boolean) => void
@@ -104,9 +113,6 @@ interface SingleSlotProps {
 function SingleSlot({
   slot,
   state,
-  providerType,
-  entityType,
-  partnerInfo,
   showValidation,
   onFileChange,
   onNotApplicableChange,
@@ -159,13 +165,6 @@ function SingleSlot({
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {slot.hasDeclarationTemplate && (
-            <DeclarationDownloadButton
-              providerType={providerType}
-              entityType={entityType}
-              partnerInfo={partnerInfo}
-            />
-          )}
           {isRequired && (
             <span className="text-xs text-red-500 font-medium">{t('structuredUpload.required')}</span>
           )}
@@ -327,16 +326,24 @@ export function StructuredDocumentUploader({
     onSubmit({ files, notApplicableSlots })
   }
 
+  // Show the declaration banner only when at least one slot requires it
+  const hasDeclarationSlot = slots.some((s) => s.hasDeclarationTemplate)
+
   return (
     <div className="space-y-3">
+      {hasDeclarationSlot && (
+        <DeclarationBanner
+          providerType={providerType}
+          entityType={entityType}
+          partnerInfo={partnerInfo}
+        />
+      )}
+
       {slots.map((slot) => (
         <SingleSlot
           key={slot.id}
           slot={slot}
           state={slotStates[slot.id] ?? { file: null, notApplicable: false, error: null }}
-          providerType={providerType}
-          entityType={entityType}
-          partnerInfo={partnerInfo}
           showValidation={showValidation}
           onFileChange={handleFileChange}
           onNotApplicableChange={handleNotApplicableChange}

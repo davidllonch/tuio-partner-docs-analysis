@@ -1,14 +1,13 @@
+import asyncio
 import io
-import json
 import logging
 import os
 import re
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-import mammoth
-import weasyprint
 from docx import Document as DocxDocument
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
@@ -135,41 +134,107 @@ def _get_template_dir(documents_base_path: str) -> str:
     return template_dir
 
 
+# OOXML Word namespace — used to find <w:t> elements via lxml
+_W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
+    """
+    Replace placeholder strings in a single paragraph XML element.
+
+    Using lxml's findall on the raw XML element (para._p) guarantees we find
+    ALL <w:t> nodes — including those nested inside <w:hyperlink>, <w:ins>
+    (tracked changes), or other wrapper elements that para.runs would miss.
+    """
+    w_t_elems = p_elem.findall(".//" + _W_NS + "t")
+    if not w_t_elems:
+        return
+
+    full_text = "".join(elem.text or "" for elem in w_t_elems)
+    if not any(ph in full_text for ph in replacements):
+        return
+
+    new_text = full_text
+    for placeholder, value in replacements.items():
+        new_text = new_text.replace(placeholder, value)
+
+    # Write the replaced text into the first <w:t>, clear the rest
+    w_t_elems[0].text = new_text
+    for elem in w_t_elems[1:]:
+        elem.text = ""
+
+
 def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str]) -> None:
-    """
-    Replace placeholder strings (e.g. '[ CAMPO ]') in a python-docx Document.
+    """Replace placeholder strings (e.g. '[ CAMPO ]') in a python-docx Document."""
+    for para in doc.paragraphs:
+        _replace_in_paragraph_elem(para._p, replacements)
 
-    DOCX XML often splits a single visible word across multiple <w:r> 'runs'.
-    This function reconstructs the full paragraph text, performs the replacement,
-    then writes the result back to the first run and clears subsequent runs so
-    the paragraph still renders as one logical block.
-    """
-    def _replace_in_paragraphs(paragraphs):
-        for para in paragraphs:
-            # Check if any placeholder appears in the full paragraph text
-            full_text = "".join(run.text for run in para.runs)
-            if not any(ph in full_text for ph in replacements):
-                continue
-
-            # Apply all replacements to the reconstructed text
-            new_text = full_text
-            for placeholder, value in replacements.items():
-                new_text = new_text.replace(placeholder, value)
-
-            # Write result into the first run, blank the rest
-            if para.runs:
-                para.runs[0].text = new_text
-                for run in para.runs[1:]:
-                    run.text = ""
-
-    # Replace in the main document body
-    _replace_in_paragraphs(doc.paragraphs)
-
-    # Also replace inside tables (cells contain their own paragraph lists)
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                _replace_in_paragraphs(cell.paragraphs)
+                for para in cell.paragraphs:
+                    _replace_in_paragraph_elem(para._p, replacements)
+
+
+async def _convert_docx_to_pdf_via_libreoffice(docx_bytes: bytes) -> bytes:
+    """
+    Convert DOCX bytes → PDF bytes using LibreOffice headless.
+
+    LibreOffice is the only reliable way to produce a pixel-perfect PDF from a DOCX
+    (it uses the same rendering engine as the desktop app).  We run it as a subprocess
+    to avoid blocking the async event loop.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        docx_path = os.path.join(tmpdir, "document.docx")
+        with open(docx_path, "wb") as fh:
+            fh.write(docx_bytes)
+
+        # Give LibreOffice its own HOME so it never conflicts with another instance
+        env = os.environ.copy()
+        env["HOME"] = tmpdir
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "libreoffice",
+                "--headless",
+                "--norestore",
+                "--convert-to", "pdf",
+                "--outdir", tmpdir,
+                docx_path,
+                env=env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60.0)
+        except asyncio.TimeoutError:
+            proc.kill()
+            logger.error("LibreOffice PDF conversion timed out")
+            raise HTTPException(
+                status_code=500,
+                detail="PDF conversion timed out",
+            )
+
+        if proc.returncode != 0:
+            logger.error(
+                "LibreOffice conversion failed (exit=%d): %s",
+                proc.returncode,
+                stderr.decode(errors="replace"),
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="PDF conversion failed",
+            )
+
+        pdf_path = os.path.join(tmpdir, "document.pdf")
+        if not os.path.exists(pdf_path):
+            logger.error("LibreOffice ran successfully but produced no PDF output")
+            raise HTTPException(
+                status_code=500,
+                detail="PDF conversion produced no output",
+            )
+
+        with open(pdf_path, "rb") as fh:
+            return fh.read()
 
 
 def _build_replacements(entity_type: str, partner_info: dict) -> dict[str, str]:
@@ -368,10 +433,9 @@ async def generate_declaration_pdf(
 
     Pipeline:
       1. Load DOCX from disk
-      2. Replace all [ PLACEHOLDER ] tokens with partner values
-      3. Convert patched DOCX → HTML (mammoth)
-      4. Convert HTML → PDF (weasyprint)
-      5. Stream the PDF back to the caller
+      2. Replace all [ PLACEHOLDER ] tokens with partner values (lxml approach)
+      3. Convert patched DOCX → PDF via LibreOffice headless subprocess
+      4. Stream the PDF back to the caller
     """
     if provider_type not in VALID_PROVIDER_TYPES:
         raise HTTPException(
@@ -415,30 +479,12 @@ async def generate_declaration_pdf(
     # ── 2. Save patched DOCX to an in-memory buffer ───────────────────────────
     docx_buffer = io.BytesIO()
     doc.save(docx_buffer)
-    docx_buffer.seek(0)
+    docx_bytes = docx_buffer.getvalue()
 
-    # ── 3. Convert DOCX → HTML via mammoth ────────────────────────────────────
-    conversion_result = mammoth.convert_to_html(docx_buffer)
-    html_content = conversion_result.value
+    # ── 3. Convert patched DOCX → PDF via LibreOffice ────────────────────────
+    pdf_bytes = await _convert_docx_to_pdf_via_libreoffice(docx_bytes)
 
-    # Wrap in minimal HTML with basic styling to improve PDF rendering
-    html_page = f"""<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<style>
-  body {{ font-family: Arial, sans-serif; font-size: 11pt; margin: 2cm; line-height: 1.5; }}
-  p {{ margin: 0 0 0.5em 0; }}
-  strong {{ font-weight: bold; }}
-</style>
-</head>
-<body>{html_content}</body>
-</html>"""
-
-    # ── 4. Convert HTML → PDF via weasyprint ─────────────────────────────────
-    pdf_bytes = weasyprint.HTML(string=html_page).write_pdf()
-
-    # ── 5. Stream back ────────────────────────────────────────────────────────
+    # ── 4. Stream back ────────────────────────────────────────────────────────
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
