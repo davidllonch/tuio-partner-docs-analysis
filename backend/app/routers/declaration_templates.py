@@ -56,19 +56,19 @@ DOCX_MIME_TYPE = (
 # Placeholder → partner_info field mapping per entity type.
 # Format in DOCX: "[ CAMPO ]" (with spaces inside brackets).
 PJ_PLACEHOLDER_MAP = {
-    "[ RAZÓN SOCIAL DE LA EMPRESA ]": "razon_social",
-    "[ CIF DE LA EMPRESA ]": "cif",
-    "[ DOMICILIO SOCIAL DE LA EMPRESA ]": "domicilio_social",
-    "[ NOMBRE Y APELLIDOS DEL REPRESENTANTE LEGAL ]": "nombre_representante",
-    "[ NIF DEL REPRESENTANTE LEGAL ]": "nif_representante",
+    "[RAZÓN SOCIAL DE LA EMPRESA]": "razon_social",
+    "[CIF DE LA EMPRESA]": "cif",
+    "[DOMICILIO SOCIAL DE LA EMPRESA]": "domicilio_social",
+    "[NOMBRE Y APELLIDOS DEL REPRESENTANTE LEGAL]": "nombre_representante",
+    "[NIF DEL REPRESENTANTE LEGAL]": "nif_representante",
 }
 
 PF_PLACEHOLDER_MAP = {
-    "[ NOMBRE Y APELLIDOS ]": "nombre_apellidos",
-    "[ NIF ]": "nif",
-    "[ DOMICILIO ]": "domicilio",
-    # Signature line reuses the same field
-    "[ NOMBRE Y APELLIDOS DEL REPRESENTANTE LEGAL ]": "nombre_apellidos",
+    "[NOMBRE Y APELLIDOS]": "nombre_apellidos",
+    "[NIF]": "nif",
+    "[DOMICILIO]": "domicilio",
+    # Signature line: some templates use the representative field, others repeat nombre_apellidos
+    "[NOMBRE Y APELLIDOS DEL REPRESENTANTE LEGAL]": "nombre_apellidos",
 }
 
 
@@ -241,9 +241,9 @@ def _build_replacements(entity_type: str, partner_info: dict) -> dict[str, str]:
     """Build the full placeholder → value mapping for a given entity type."""
     today = datetime.now(timezone.utc)
     date_replacements = {
-        "[ DÍA ]": str(today.day),
-        "[ MES ]": str(today.month),
-        "[ AÑO ]": str(today.year),
+        "[DÍA]": str(today.day),
+        "[MES]": str(today.month),
+        "[AÑO]": str(today.year),
     }
 
     if entity_type == "PJ":
