@@ -240,9 +240,13 @@ async def _convert_docx_to_pdf_via_libreoffice(docx_bytes: bytes) -> bytes:
 def _build_replacements(entity_type: str, partner_info: dict) -> dict[str, str]:
     """Build the full placeholder → value mapping for a given entity type."""
     today = datetime.now(timezone.utc)
+    _MESES = [
+        "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    ]
     date_replacements = {
         "[DÍA]": str(today.day),
-        "[MES]": str(today.month),
+        "[MES]": _MESES[today.month],
         "[AÑO]": str(today.year),
     }
 
