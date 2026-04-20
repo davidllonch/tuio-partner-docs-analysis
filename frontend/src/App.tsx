@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ToastProvider } from './components/ui/Toast'
 import { ProtectedRoute } from './components/ui/ProtectedRoute'
 import { ThankYouPage } from './pages/ThankYouPage'
+import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SubmissionDetailPage } from './pages/SubmissionDetailPage'
@@ -10,6 +11,7 @@ import { TeamPage } from './pages/TeamPage'
 import { InvitationsPage } from './pages/InvitationsPage'
 import { InvitePage } from './pages/InvitePage'
 import { DeclarationTemplatesPage } from './pages/DeclarationTemplatesPage'
+import { ContractTemplatesPage } from './pages/ContractTemplatesPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +28,9 @@ export function App() {
       <ToastProvider>
         <BrowserRouter>
           <Routes>
+            {/* Public — root landing */}
+            <Route path="/" element={<LandingPage />} />
+
             {/* Public — partner-facing */}
             <Route path="/invite/:token" element={<InvitePage />} />
             <Route path="/thank-you" element={<ThankYouPage />} />
@@ -40,6 +45,7 @@ export function App() {
               <Route path="/team" element={<TeamPage />} />
               <Route path="/invitations" element={<InvitationsPage />} />
               <Route path="/declaration-templates" element={<DeclarationTemplatesPage />} />
+              <Route path="/contract-templates" element={<ContractTemplatesPage />} />
             </Route>
 
             {/* Catch-all: redirect unknown URLs to login */}

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LogOut, KeyRound, Upload, CheckCircle, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useAllDeclarationTemplates, useUploadDeclarationTemplate } from '../hooks/useDeclarationTemplates'
+import { useAllContractTemplates, useUploadContractTemplate } from '../hooks/useContractTemplates'
 import { useCurrentAnalyst, useLogout } from '../hooks/useAuth'
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
 import { ChangePasswordModal } from '../components/ui/ChangePasswordModal'
@@ -10,11 +10,11 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { useToast } from '../components/ui/Toast'
 import type { ProviderType } from '../lib/types'
 
+// Contract templates apply to these 3 provider types only (not agencia_seguros)
 const PROVIDER_TYPES: { value: ProviderType; label: string }[] = [
-  { value: 'correduria_seguros', label: 'Correduría de Seguros' },
-  { value: 'agencia_seguros', label: 'Agencia de Seguros' },
   { value: 'colaborador_externo', label: 'Colaborador Externo' },
   { value: 'generador_leads', label: 'Generador de Leads' },
+  { value: 'correduria_seguros', label: 'Correduría de Seguros' },
 ]
 
 const ENTITY_TYPES = [
@@ -41,27 +41,27 @@ function formatDate(iso: string): string {
   })
 }
 
-export function DeclarationTemplatesPage() {
+export function ContractTemplatesPage() {
   const { t } = useTranslation()
   const { data: analyst } = useCurrentAnalyst()
   const logout = useLogout()
   const { toast } = useToast()
   const [showPasswordModal, setShowPasswordModal] = useState(false)
 
-  const { data, isLoading } = useAllDeclarationTemplates()
-  const uploadMutation = useUploadDeclarationTemplate()
+  const { data, isLoading } = useAllContractTemplates()
+  const uploadMutation = useUploadContractTemplate()
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const handleUpload = (providerType: string, entityType: string, file: File) => {
     if (!isDocxFile(file)) {
-      toast({ title: t('declarationTemplates.errorNotDocx'), variant: 'error' })
+      toast({ title: t('contractTemplates.errorNotDocx'), variant: 'error' })
       return
     }
     uploadMutation.mutate(
       { providerType, entityType, file },
       {
-        onSuccess: () => toast({ title: t('declarationTemplates.uploadSuccess'), variant: 'success' }),
-        onError: () => toast({ title: t('declarationTemplates.uploadError'), variant: 'error' }),
+        onSuccess: () => toast({ title: t('contractTemplates.uploadSuccess'), variant: 'success' }),
+        onError: () => toast({ title: t('contractTemplates.uploadError'), variant: 'error' }),
       }
     )
   }
@@ -89,10 +89,10 @@ export function DeclarationTemplatesPage() {
                 <Link to="/team" className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
                   {t('nav.team')}
                 </Link>
-                <Link to="/declaration-templates" className="px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg">
+                <Link to="/declaration-templates" className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
                   {t('nav.declarationTemplates')}
                 </Link>
-                <Link to="/contract-templates" className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
+                <Link to="/contract-templates" className="px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg">
                   {t('nav.contractTemplates')}
                 </Link>
               </nav>
@@ -126,8 +126,8 @@ export function DeclarationTemplatesPage() {
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-900">{t('declarationTemplates.title')}</h2>
-          <p className="text-sm text-gray-500 mt-0.5">{t('declarationTemplates.subtitle')}</p>
+          <h2 className="text-xl font-bold text-gray-900">{t('contractTemplates.title')}</h2>
+          <p className="text-sm text-gray-500 mt-0.5">{t('contractTemplates.subtitle')}</p>
         </div>
 
         {isLoading ? (
@@ -160,8 +160,8 @@ export function DeclarationTemplatesPage() {
                             <div className="mt-1 flex items-center gap-1.5 text-xs text-green-700">
                               <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
                               <span>
-                                {t('declarationTemplates.uploadedBy', {
-                                  name: template.uploaded_by_name ?? t('declarationTemplates.unknownAnalyst'),
+                                {t('contractTemplates.uploadedBy', {
+                                  name: template.uploaded_by_name ?? t('contractTemplates.unknownAnalyst'),
                                   date: formatDate(template.uploaded_at.toString()),
                                 })}
                                 {' — '}<span className="font-medium">{template.original_filename}</span>
@@ -170,7 +170,7 @@ export function DeclarationTemplatesPage() {
                           ) : (
                             <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
                               <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                              <span>{t('declarationTemplates.noTemplate')}</span>
+                              <span>{t('contractTemplates.noTemplate')}</span>
                             </div>
                           )}
                         </div>
@@ -198,8 +198,8 @@ export function DeclarationTemplatesPage() {
                               <Upload className="h-3.5 w-3.5" />
                             )}
                             {template
-                              ? t('declarationTemplates.replaceDocx')
-                              : t('declarationTemplates.uploadDocx')}
+                              ? t('contractTemplates.replaceDocx')
+                              : t('contractTemplates.uploadDocx')}
                           </button>
                         </div>
                       </div>

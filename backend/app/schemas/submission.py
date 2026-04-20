@@ -62,6 +62,7 @@ class SubmissionDetail(BaseModel):
     email_sent_at: Optional[datetime]
     error_message: Optional[str]
     partner_info: Optional[str]
+    contract_data: Optional[str] = None
     documents: List[DocumentOut]
     analyses: List[AnalysisSummaryOut]
 

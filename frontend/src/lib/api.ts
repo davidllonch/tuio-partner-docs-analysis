@@ -18,6 +18,7 @@ import type {
   InvitationPublic,
   PartnerInfo,
   AllDeclarationTemplatesResponse,
+  AllContractTemplatesResponse,
 } from './types'
 
 const baseURL = import.meta.env.VITE_API_URL
@@ -241,4 +242,85 @@ export async function generateDeclarationPdf(
     { responseType: 'blob' }
   )
   return new Blob([response.data], { type: 'application/pdf' })
+}
+
+// --- Contract Templates ---
+
+export async function fetchContractTemplateInfo(
+  providerType: string,
+  entityType: string
+): Promise<{ provider_type: string; entity_type: string; original_filename: string; uploaded_at: string } | null> {
+  try {
+    const response = await apiClient.get(
+      `/api/contract-templates/${providerType}/${entityType}`
+    )
+    return response.data
+  } catch {
+    return null
+  }
+}
+
+export async function fetchAllContractTemplates(): Promise<AllContractTemplatesResponse> {
+  const response = await apiClient.get<AllContractTemplatesResponse>('/api/contract-templates')
+  return response.data
+}
+
+export async function uploadContractTemplate(
+  providerType: string,
+  entityType: string,
+  file: File
+): Promise<AllContractTemplatesResponse['templates'][number]> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await apiClient.put(
+    `/api/contract-templates/${providerType}/${entityType}`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return response.data
+}
+
+export async function generateContractPdf(
+  providerType: string,
+  entityType: string,
+  partnerInfo: PartnerInfo
+): Promise<Blob> {
+  const response = await apiClient.post(
+    `/api/contract-templates/${providerType}/${entityType}/generate`,
+    { partner_info: partnerInfo },
+    { responseType: 'blob' }
+  )
+  return new Blob([response.data], { type: 'application/pdf' })
+}
+
+export async function generateContractPdfFull(
+  providerType: string,
+  entityType: string,
+  partnerInfo: PartnerInfo,
+  contractData: object
+): Promise<Blob> {
+  const token = getToken()
+  const response = await apiClient.post(
+    `/api/contract-templates/${providerType}/${entityType}/generate-full`,
+    { partner_info: partnerInfo, contract_data: contractData },
+    {
+      responseType: 'blob',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }
+  )
+  return new Blob([response.data], { type: 'application/pdf' })
+}
+
+export async function updateContractData(
+  submissionId: string,
+  contractData: object
+): Promise<void> {
+  const token = getToken()
+  await apiClient.patch(
+    `/api/submissions/${submissionId}/contract-data`,
+    { contract_data: JSON.stringify(contractData) },
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }
+  )
 }

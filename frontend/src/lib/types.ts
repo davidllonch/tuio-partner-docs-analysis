@@ -47,6 +47,7 @@ export interface SubmissionDetail extends SubmissionListItem {
   ai_response: string | null
   error_message: string | null
   partner_info: string | null
+  contract_data: string | null
   documents: Document[]
   analyses: Analysis[]
 }
@@ -175,6 +176,11 @@ export interface PartnerInfoPJ {
   domicilio_social: string
   nombre_representante: string
   nif_representante: string
+  poder: string
+  email: string
+  direccion_notificaciones: string
+  contacto_notificaciones: string
+  clave_dgs?: string
 }
 
 export interface PartnerInfoPF {
@@ -182,6 +188,10 @@ export interface PartnerInfoPF {
   nombre_apellidos: string
   nif: string
   domicilio: string
+  email: string
+  direccion_notificaciones: string
+  contacto_notificaciones: string
+  clave_dgs?: string
 }
 
 export type PartnerInfo = PartnerInfoPJ | PartnerInfoPF
@@ -200,4 +210,20 @@ export interface DeclarationTemplateInfo {
 
 export interface AllDeclarationTemplatesResponse {
   templates: DeclarationTemplateInfo[]
+}
+
+// ── Contract template types ───────────────────────────────────────────────────
+
+export interface ContractTemplateInfo {
+  provider_type: string
+  entity_type: string
+  provider_type_label: string
+  entity_type_label: string
+  original_filename: string
+  uploaded_at: string
+  uploaded_by_name: string | null
+}
+
+export interface AllContractTemplatesResponse {
+  templates: ContractTemplateInfo[]
 }

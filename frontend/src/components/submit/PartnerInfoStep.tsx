@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -5,24 +6,35 @@ import { useTranslation } from 'react-i18next'
 import { ArrowRight } from 'lucide-react'
 import type { PartnerInfo, PartnerInfoPJ, PartnerInfoPF } from '../../lib/types'
 
-// ── Zod schemas ────────────────────────────────────────────────────────────────
+// ── Zod schema builders (isCorreduria controls whether clave_dgs is required) ──
 
-const pjSchema = z.object({
-  razon_social: z.string().min(1).max(255),
-  cif: z.string().min(1).max(20),
-  domicilio_social: z.string().min(1).max(500),
-  nombre_representante: z.string().min(1).max(255),
-  nif_representante: z.string().min(1).max(20),
-})
+const buildPJSchema = (isCorreduria: boolean) =>
+  z.object({
+    razon_social: z.string().min(1).max(255),
+    cif: z.string().min(1).max(20),
+    domicilio_social: z.string().min(1).max(500),
+    nombre_representante: z.string().min(1).max(255),
+    nif_representante: z.string().min(1).max(20),
+    poder: z.string().min(1, 'Campo obligatorio'),
+    email: z.string().email('Email inválido'),
+    direccion_notificaciones: z.string().min(1, 'Campo obligatorio'),
+    contacto_notificaciones: z.string().min(1, 'Campo obligatorio'),
+    clave_dgs: isCorreduria ? z.string().min(1, 'Campo obligatorio') : z.string().optional(),
+  })
 
-const pfSchema = z.object({
-  nombre_apellidos: z.string().min(1).max(255),
-  nif: z.string().min(1).max(20),
-  domicilio: z.string().min(1).max(500),
-})
+const buildPFSchema = (isCorreduria: boolean) =>
+  z.object({
+    nombre_apellidos: z.string().min(1).max(255),
+    nif: z.string().min(1).max(20),
+    domicilio: z.string().min(1).max(500),
+    email: z.string().email('Email inválido'),
+    direccion_notificaciones: z.string().min(1, 'Campo obligatorio'),
+    contacto_notificaciones: z.string().min(1, 'Campo obligatorio'),
+    clave_dgs: isCorreduria ? z.string().min(1, 'Campo obligatorio') : z.string().optional(),
+  })
 
-type PJFormValues = z.infer<typeof pjSchema>
-type PFFormValues = z.infer<typeof pfSchema>
+type PJFormValues = z.infer<ReturnType<typeof buildPJSchema>>
+type PFFormValues = z.infer<ReturnType<typeof buildPFSchema>>
 
 // ── Shared field component ─────────────────────────────────────────────────────
 
@@ -59,13 +71,15 @@ const inputClass = (hasError: boolean) =>
 
 // ── PJ form ────────────────────────────────────────────────────────────────────
 
-function PJForm({ onSubmit }: { onSubmit: (data: PartnerInfoPJ) => void }) {
+function PJForm({ onSubmit, providerType }: { onSubmit: (data: PartnerInfoPJ) => void; providerType: string }) {
   const { t } = useTranslation()
+  const isCorreduria = providerType === 'correduria_seguros'
+  const schema = useMemo(() => buildPJSchema(isCorreduria), [isCorreduria])
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<PJFormValues>({ resolver: zodResolver(pjSchema) })
+  } = useForm<PJFormValues>({ resolver: zodResolver(schema) })
 
   const submit = (data: PJFormValues) => {
     onSubmit({ entity_type: 'PJ', ...data })
@@ -118,6 +132,53 @@ function PJForm({ onSubmit }: { onSubmit: (data: PartnerInfoPJ) => void }) {
         />
       </Field>
 
+      <Field id="poder" label={t('partnerInfo.poder')} error={errors.poder?.message}>
+        <input
+          id="poder"
+          type="text"
+          className={inputClass(!!errors.poder)}
+          {...register('poder')}
+        />
+      </Field>
+
+      <Field id="email" label={t('partnerInfo.email')} error={errors.email?.message}>
+        <input
+          id="email"
+          type="email"
+          className={inputClass(!!errors.email)}
+          {...register('email')}
+        />
+      </Field>
+
+      <Field id="direccion_notificaciones" label={t('partnerInfo.direccion_notificaciones')} error={errors.direccion_notificaciones?.message}>
+        <input
+          id="direccion_notificaciones"
+          type="text"
+          className={inputClass(!!errors.direccion_notificaciones)}
+          {...register('direccion_notificaciones')}
+        />
+      </Field>
+
+      <Field id="contacto_notificaciones" label={t('partnerInfo.contacto_notificaciones')} error={errors.contacto_notificaciones?.message}>
+        <input
+          id="contacto_notificaciones"
+          type="text"
+          className={inputClass(!!errors.contacto_notificaciones)}
+          {...register('contacto_notificaciones')}
+        />
+      </Field>
+
+      {isCorreduria && (
+        <Field id="clave_dgs" label={t('partnerInfo.clave_dgs')} error={errors.clave_dgs?.message}>
+          <input
+            id="clave_dgs"
+            type="text"
+            className={inputClass(!!errors.clave_dgs)}
+            {...register('clave_dgs')}
+          />
+        </Field>
+      )}
+
       <button
         type="submit"
         className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors"
@@ -131,13 +192,15 @@ function PJForm({ onSubmit }: { onSubmit: (data: PartnerInfoPJ) => void }) {
 
 // ── PF form ────────────────────────────────────────────────────────────────────
 
-function PFForm({ onSubmit }: { onSubmit: (data: PartnerInfoPF) => void }) {
+function PFForm({ onSubmit, providerType }: { onSubmit: (data: PartnerInfoPF) => void; providerType: string }) {
   const { t } = useTranslation()
+  const isCorreduria = providerType === 'correduria_seguros'
+  const schema = useMemo(() => buildPFSchema(isCorreduria), [isCorreduria])
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<PFFormValues>({ resolver: zodResolver(pfSchema) })
+  } = useForm<PFFormValues>({ resolver: zodResolver(schema) })
 
   const submit = (data: PFFormValues) => {
     onSubmit({ entity_type: 'PF', ...data })
@@ -172,6 +235,44 @@ function PFForm({ onSubmit }: { onSubmit: (data: PartnerInfoPF) => void }) {
         />
       </Field>
 
+      <Field id="email" label={t('partnerInfo.email')} error={errors.email?.message}>
+        <input
+          id="email"
+          type="email"
+          className={inputClass(!!errors.email)}
+          {...register('email')}
+        />
+      </Field>
+
+      <Field id="direccion_notificaciones" label={t('partnerInfo.direccion_notificaciones')} error={errors.direccion_notificaciones?.message}>
+        <input
+          id="direccion_notificaciones"
+          type="text"
+          className={inputClass(!!errors.direccion_notificaciones)}
+          {...register('direccion_notificaciones')}
+        />
+      </Field>
+
+      <Field id="contacto_notificaciones" label={t('partnerInfo.contacto_notificaciones')} error={errors.contacto_notificaciones?.message}>
+        <input
+          id="contacto_notificaciones"
+          type="text"
+          className={inputClass(!!errors.contacto_notificaciones)}
+          {...register('contacto_notificaciones')}
+        />
+      </Field>
+
+      {isCorreduria && (
+        <Field id="clave_dgs" label={t('partnerInfo.clave_dgs')} error={errors.clave_dgs?.message}>
+          <input
+            id="clave_dgs"
+            type="text"
+            className={inputClass(!!errors.clave_dgs)}
+            {...register('clave_dgs')}
+          />
+        </Field>
+      )}
+
       <button
         type="submit"
         className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors"
@@ -187,10 +288,11 @@ function PFForm({ onSubmit }: { onSubmit: (data: PartnerInfoPF) => void }) {
 
 interface PartnerInfoStepProps {
   entityType: 'PF' | 'PJ'
+  providerType: string
   onContinue: (info: PartnerInfo) => void
 }
 
-export function PartnerInfoStep({ entityType, onContinue }: PartnerInfoStepProps) {
+export function PartnerInfoStep({ entityType, providerType, onContinue }: PartnerInfoStepProps) {
   const { t } = useTranslation()
 
   return (
@@ -201,9 +303,9 @@ export function PartnerInfoStep({ entityType, onContinue }: PartnerInfoStepProps
       </div>
 
       {entityType === 'PJ' ? (
-        <PJForm onSubmit={onContinue} />
+        <PJForm onSubmit={onContinue} providerType={providerType} />
       ) : (
-        <PFForm onSubmit={onContinue} />
+        <PFForm onSubmit={onContinue} providerType={providerType} />
       )}
     </div>
   )

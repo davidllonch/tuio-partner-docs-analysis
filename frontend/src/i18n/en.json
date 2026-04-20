@@ -3,7 +3,13 @@
     "submissions": "Submissions",
     "invitations": "Invitations",
     "team": "Team",
-    "declarationTemplates": "Declaration Templates"
+    "declarationTemplates": "Declaration Templates",
+    "contractTemplates": "Contracts"
+  },
+  "landing": {
+    "title": "KYC/KYB for Tuio Partners",
+    "subtitle": "KYC/KYB review system for Tuio Partners. If you are a Partner, use the URL we provided to start the process.",
+    "analystAccess": "Analyst access"
   },
   "auth": {
     "title": "Analyst Login",
@@ -81,7 +87,21 @@
     "triggeredByAnalyst": "Analyst",
     "triggeredByPartner": "Partner",
     "submitted": "Submitted",
-    "partnerInfo": "Partner Information"
+    "partnerInfo": "Partner Information",
+    "contractSection": "Contract Management",
+    "contractActivity": "Partner activity",
+    "commissions": "Commissions",
+    "commissionProduct": "Insurance product",
+    "commissionPrima": "Net premium tranche 1",
+    "commissionNP": "NP commission (%)",
+    "commissionCartera": "Portfolio commission (%)",
+    "addCommissionRow": "Add product",
+    "saveContractData": "Save",
+    "savingContractData": "Saving…",
+    "saveContractSuccess": "Contract data saved.",
+    "saveContractError": "Could not save. Please try again.",
+    "downloadContract": "Download complete contract",
+    "downloadingContract": "Generating contract…"
   },
   "team": {
     "title": "Team",
@@ -195,6 +215,18 @@
     "uploadedBy": "Uploaded by {{name}} on {{date}}",
     "unknownAnalyst": "unknown analyst"
   },
+  "contractTemplates": {
+    "title": "Contract Templates",
+    "subtitle": "Manage contracts (DOCX) for each partner and entity type. Does not apply to Agencia de Seguros.",
+    "uploadDocx": "Upload DOCX",
+    "replaceDocx": "Replace DOCX",
+    "uploadSuccess": "Contract uploaded successfully.",
+    "uploadError": "Could not upload the contract. Please try again.",
+    "errorNotDocx": "Only DOCX files are accepted.",
+    "noTemplate": "No contract uploaded yet.",
+    "uploadedBy": "Uploaded by {{name}} on {{date}}",
+    "unknownAnalyst": "unknown analyst"
+  },
   "partnerInfo": {
     "title": "Your Information",
     "subtitle": "We need a few details to personalise your declaration document.",
@@ -206,7 +238,12 @@
     "nif_representante": "Legal Representative NIF",
     "nombre_apellidos": "Full Name (Nombre y Apellidos)",
     "nif": "NIF",
-    "domicilio": "Address (Domicilio)"
+    "domicilio": "Address (Domicilio)",
+    "email": "Contact email",
+    "direccion_notificaciones": "Postal address for notifications",
+    "contacto_notificaciones": "Contact person for notifications",
+    "poder": "Condition or power of the legal representative",
+    "clave_dgs": "DGSFP Key"
   },
   "structuredUpload": {
     "required": "Required",
@@ -218,6 +255,10 @@
     "declarationBannerInstructions": "Before uploading your documents, you must download this responsible declaration, sign it, and upload it in the corresponding section on this page.",
     "declarationBannerDownload": "Download responsible declaration (PDF)",
     "declarationBannerGenerating": "Generating PDF…",
+    "contractBannerTitle": "Also download your collaboration contract",
+    "contractBannerInstructions": "Download this contract, sign it and upload it in the corresponding section on this page. Commission terms will be completed later.",
+    "contractBannerDownload": "Download contract (PDF)",
+    "contractBannerGenerating": "Generating PDF…",
     "downloadTemplate": "Download declaration template",
     "clickOrDrop": "Click or drag file here",
     "missingRequired": "This document is required",

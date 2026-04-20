@@ -3,7 +3,13 @@
     "submissions": "Expedientes",
     "invitations": "Invitaciones",
     "team": "Equipo",
-    "declarationTemplates": "Templates de Declaraciones"
+    "declarationTemplates": "Templates de Declaraciones",
+    "contractTemplates": "Contratos"
+  },
+  "landing": {
+    "title": "KYC/KYB de Partners de Tuio",
+    "subtitle": "Sistema de revisión de KYC/KYB para Partners de Tuio. Si eres un Partner, usa la URL que te hemos proporcionado para iniciar el proceso.",
+    "analystAccess": "Acceso de analistas"
   },
   "auth": {
     "title": "Acceso de analistas",
@@ -81,7 +87,21 @@
     "triggeredByAnalyst": "Analista",
     "triggeredByPartner": "Partner",
     "submitted": "Enviado",
-    "partnerInfo": "Información del Partner"
+    "partnerInfo": "Información del Partner",
+    "contractSection": "Gestión del Contrato",
+    "contractActivity": "Actividad del partner",
+    "commissions": "Comisiones",
+    "commissionProduct": "Producto de seguro",
+    "commissionPrima": "Prima neta tramo 1",
+    "commissionNP": "Comisión NP (%)",
+    "commissionCartera": "Comisión cartera (%)",
+    "addCommissionRow": "Añadir producto",
+    "saveContractData": "Guardar",
+    "savingContractData": "Guardando…",
+    "saveContractSuccess": "Datos del contrato guardados.",
+    "saveContractError": "No se ha podido guardar. Inténtalo de nuevo.",
+    "downloadContract": "Descargar contrato completo",
+    "downloadingContract": "Generando contrato…"
   },
   "team": {
     "title": "Equipo",
@@ -195,6 +215,18 @@
     "uploadedBy": "Subido por {{name}} el {{date}}",
     "unknownAnalyst": "analista desconocido"
   },
+  "contractTemplates": {
+    "title": "Templates de Contratos",
+    "subtitle": "Gestiona los contratos (DOCX) para cada tipo de partner y entidad. No aplica a Agencia de Seguros.",
+    "uploadDocx": "Subir DOCX",
+    "replaceDocx": "Sustituir DOCX",
+    "uploadSuccess": "Contrato subido correctamente.",
+    "uploadError": "No se ha podido subir el contrato. Por favor, inténtalo de nuevo.",
+    "errorNotDocx": "Solo se aceptan archivos DOCX.",
+    "noTemplate": "Ningún contrato subido todavía.",
+    "uploadedBy": "Subido por {{name}} el {{date}}",
+    "unknownAnalyst": "analista desconocido"
+  },
   "partnerInfo": {
     "title": "Tu Información",
     "subtitle": "Necesitamos algunos datos para personalizar tu documento de declaración.",
@@ -206,7 +238,12 @@
     "nif_representante": "NIF del Representante Legal",
     "nombre_apellidos": "Nombre y Apellidos",
     "nif": "NIF",
-    "domicilio": "Domicilio"
+    "domicilio": "Domicilio",
+    "email": "Email de contacto",
+    "direccion_notificaciones": "Dirección postal para notificaciones",
+    "contacto_notificaciones": "Persona de contacto para notificaciones",
+    "poder": "Condición o poder del representante legal",
+    "clave_dgs": "Clave DGSFP"
   },
   "structuredUpload": {
     "required": "Obligatorio",
@@ -218,6 +255,10 @@
     "declarationBannerInstructions": "Antes de subir tus documentos, debes descargar esta declaración responsable, firmarla, y subirla en el apartado correspondiente de esta misma página.",
     "declarationBannerDownload": "Descargar declaración responsable (PDF)",
     "declarationBannerGenerating": "Generando PDF…",
+    "contractBannerTitle": "Descarga también tu contrato de colaboración",
+    "contractBannerInstructions": "Descarga este contrato, fírmalo y súbelo en el apartado correspondiente de esta misma página. Las condiciones de comisiones se completarán posteriormente.",
+    "contractBannerDownload": "Descargar contrato (PDF)",
+    "contractBannerGenerating": "Generando PDF…",
     "downloadTemplate": "Descargar plantilla de declaraciones",
     "clickOrDrop": "Haz clic o arrastra el archivo aquí",
     "missingRequired": "Este documento es obligatorio",

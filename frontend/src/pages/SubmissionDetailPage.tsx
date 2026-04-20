@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, LogOut, Calendar, MapPin, Building2, User, ClipboardList } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, LogOut, Calendar, MapPin, Building2, User, ClipboardList, FileSignature, Loader2, X, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSubmission } from '../hooks/useSubmissions'
 import { useCurrentAnalyst, useLogout } from '../hooks/useAuth'
@@ -9,7 +10,25 @@ import { ReanalysePanel } from '../components/detail/ReanalysePanel'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
+import { useToast } from '../components/ui/Toast'
+import { updateContractData, generateContractPdfFull } from '../lib/api'
 import { PROVIDER_TYPE_LABELS, ENTITY_TYPE_LABELS } from '../lib/types'
+
+const CONTRACT_PROVIDER_TYPES = ['colaborador_externo', 'generador_leads', 'correduria_seguros']
+
+interface CommissionRow {
+  producto: string
+  prima: string
+  comision_np: string
+  comision_cartera: string
+}
+
+interface ContractFormState {
+  actividad: string
+  commissions: CommissionRow[]
+}
+
+const EMPTY_ROW: CommissionRow = { producto: '', prima: '', comision_np: '', comision_cartera: '' }
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
@@ -27,6 +46,104 @@ export function SubmissionDetailPage() {
   const { data: analyst } = useCurrentAnalyst()
   const logout = useLogout()
   const { t } = useTranslation()
+  const { toast } = useToast()
+
+  const [contractState, setContractState] = useState<ContractFormState>({
+    actividad: '',
+    commissions: [{ ...EMPTY_ROW }],
+  })
+  const [isSavingContract, setIsSavingContract] = useState(false)
+  const [isDownloadingContract, setIsDownloadingContract] = useState(false)
+
+  // Initialise contract form from saved data when submission loads or changes
+  useEffect(() => {
+    if (!submission) return
+    if (submission.contract_data) {
+      try {
+        const parsed = JSON.parse(submission.contract_data)
+        setContractState({
+          actividad: parsed.fields?.actividad ?? '',
+          commissions:
+            Array.isArray(parsed.commissions) && parsed.commissions.length > 0
+              ? parsed.commissions
+              : [{ ...EMPTY_ROW }],
+        })
+      } catch {
+        setContractState({ actividad: '', commissions: [{ ...EMPTY_ROW }] })
+      }
+    } else {
+      setContractState({ actividad: '', commissions: [{ ...EMPTY_ROW }] })
+    }
+  }, [submission?.contract_data])
+
+  const updateCommissionRow = (idx: number, field: keyof CommissionRow, value: string) => {
+    setContractState((prev) => {
+      const updated = prev.commissions.map((row, i) =>
+        i === idx ? { ...row, [field]: value } : row
+      )
+      return { ...prev, commissions: updated }
+    })
+  }
+
+  const addCommissionRow = () => {
+    setContractState((prev) => ({
+      ...prev,
+      commissions: [...prev.commissions, { ...EMPTY_ROW }],
+    }))
+  }
+
+  const removeCommissionRow = (idx: number) => {
+    setContractState((prev) => ({
+      ...prev,
+      commissions: prev.commissions.filter((_, i) => i !== idx),
+    }))
+  }
+
+  const handleSaveContractData = async () => {
+    if (!submission) return
+    setIsSavingContract(true)
+    try {
+      await updateContractData(submission.id, {
+        fields: { actividad: contractState.actividad },
+        commissions: contractState.commissions,
+      })
+      toast({ title: t('detail.saveContractSuccess'), variant: 'success' })
+    } catch {
+      toast({ title: t('detail.saveContractError'), variant: 'error' })
+    } finally {
+      setIsSavingContract(false)
+    }
+  }
+
+  const handleDownloadContractPdf = async () => {
+    if (!submission) return
+    setIsDownloadingContract(true)
+    try {
+      const partnerInfo = submission.partner_info ? JSON.parse(submission.partner_info) : {}
+      const contractData = {
+        fields: { actividad: contractState.actividad },
+        commissions: contractState.commissions,
+      }
+      const blob = await generateContractPdfFull(
+        submission.provider_type,
+        submission.entity_type,
+        partnerInfo,
+        contractData
+      )
+      const url = window.URL.createObjectURL(blob)
+      const anchor = window.document.createElement('a')
+      anchor.href = url
+      anchor.download = 'contrato.pdf'
+      window.document.body.appendChild(anchor)
+      anchor.click()
+      window.document.body.removeChild(anchor)
+      window.URL.revokeObjectURL(url)
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setIsDownloadingContract(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -168,6 +285,152 @@ export function SubmissionDetailPage() {
                 errorMessage={submission.error_message}
                 providerName={submission.provider_name}
               />
+
+              {/* Contract management section — only for provider types that use contracts */}
+              {CONTRACT_PROVIDER_TYPES.includes(submission.provider_type) && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <div className="flex items-center gap-2 mb-5">
+                    <FileSignature className="h-4 w-4 text-gray-400" />
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      {t('detail.contractSection')}
+                    </h3>
+                  </div>
+
+                  {/* Activity field */}
+                  <div className="mb-5">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      {t('detail.contractActivity')}
+                    </label>
+                    <input
+                      type="text"
+                      value={contractState.actividad}
+                      onChange={(e) =>
+                        setContractState((prev) => ({ ...prev, actividad: e.target.value }))
+                      }
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    />
+                  </div>
+
+                  {/* Commission table */}
+                  <div className="mb-4">
+                    <p className="text-xs font-medium text-gray-500 mb-2">
+                      {t('detail.commissions')}
+                    </p>
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 bg-gray-50">
+                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">
+                              {t('detail.commissionProduct')}
+                            </th>
+                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">
+                              {t('detail.commissionPrima')}
+                            </th>
+                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">
+                              {t('detail.commissionNP')}
+                            </th>
+                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">
+                              {t('detail.commissionCartera')}
+                            </th>
+                            <th className="w-8" />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {contractState.commissions.map((row, idx) => (
+                            <tr key={idx}>
+                              <td className="py-1.5 px-2">
+                                <input
+                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                  value={row.producto}
+                                  onChange={(e) =>
+                                    updateCommissionRow(idx, 'producto', e.target.value)
+                                  }
+                                />
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <input
+                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                  value={row.prima}
+                                  onChange={(e) =>
+                                    updateCommissionRow(idx, 'prima', e.target.value)
+                                  }
+                                />
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <input
+                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                  value={row.comision_np}
+                                  onChange={(e) =>
+                                    updateCommissionRow(idx, 'comision_np', e.target.value)
+                                  }
+                                />
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <input
+                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                  value={row.comision_cartera}
+                                  onChange={(e) =>
+                                    updateCommissionRow(idx, 'comision_cartera', e.target.value)
+                                  }
+                                />
+                              </td>
+                              <td className="py-1.5 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeCommissionRow(idx)}
+                                  className="p-0.5 rounded text-gray-400 hover:text-red-500 transition-colors"
+                                  aria-label="Remove row"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Add row button */}
+                    <button
+                      type="button"
+                      onClick={addCommissionRow}
+                      className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                    >
+                      + {t('detail.addCommissionRow')}
+                    </button>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={handleSaveContractData}
+                      disabled={isSavingContract}
+                      className="inline-flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-900 transition-colors disabled:opacity-60"
+                    >
+                      {isSavingContract && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {isSavingContract
+                        ? t('detail.savingContractData')
+                        : t('detail.saveContractData')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadContractPdf}
+                      disabled={isDownloadingContract}
+                      className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-60"
+                    >
+                      {isDownloadingContract ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      {isDownloadingContract
+                        ? t('detail.downloadingContract')
+                        : t('detail.downloadContract')}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right / sidebar column */}

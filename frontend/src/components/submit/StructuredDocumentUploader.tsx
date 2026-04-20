@@ -2,7 +2,8 @@ import { useCallback, useRef, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckSquare, Square, Upload, FileText, X, Download, AlertCircle, Loader2 } from 'lucide-react'
 import { useDeclarationTemplateStatus } from '../../hooks/useDeclarationTemplates'
-import { generateDeclarationPdf } from '../../lib/api'
+import { useContractTemplateStatus } from '../../hooks/useContractTemplates'
+import { generateDeclarationPdf, generateContractPdf } from '../../lib/api'
 import type { DocumentSlot } from '../../lib/documentRequirements'
 import type { PartnerInfo } from '../../lib/types'
 
@@ -93,6 +94,72 @@ function DeclarationBanner({ providerType, entityType, partnerInfo }: Declaratio
             {isGenerating
               ? t('structuredUpload.declarationBannerGenerating')
               : t('structuredUpload.declarationBannerDownload')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Contract banner ──────────────────────────────────────────────────────────
+
+interface ContractBannerProps {
+  providerType: string
+  entityType: string
+  partnerInfo: PartnerInfo
+}
+
+function ContractBanner({ providerType, entityType, partnerInfo }: ContractBannerProps) {
+  const { t } = useTranslation()
+  const { data, isLoading } = useContractTemplateStatus(providerType, entityType)
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  if (isLoading || !data) return null
+
+  const handleDownload = async () => {
+    setIsGenerating(true)
+    try {
+      const blob = await generateContractPdf(providerType, entityType, partnerInfo)
+      const url = window.URL.createObjectURL(blob)
+      const anchor = window.document.createElement('a')
+      anchor.href = url
+      anchor.download = 'contrato.pdf'
+      window.document.body.appendChild(anchor)
+      anchor.click()
+      window.document.body.removeChild(anchor)
+      window.URL.revokeObjectURL(url)
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border-2 border-blue-300 bg-blue-50 p-5">
+      <div className="flex items-start gap-3">
+        <Download className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-blue-900">
+            {t('structuredUpload.contractBannerTitle')}
+          </p>
+          <p className="mt-1 text-sm text-blue-800 leading-relaxed">
+            {t('structuredUpload.contractBannerInstructions')}
+          </p>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={isGenerating}
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-60"
+          >
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {isGenerating
+              ? t('structuredUpload.contractBannerGenerating')
+              : t('structuredUpload.contractBannerDownload')}
           </button>
         </div>
       </div>
@@ -241,6 +308,8 @@ function SingleSlot({
   )
 }
 
+const CONTRACT_PROVIDER_TYPES = ['colaborador_externo', 'generador_leads', 'correduria_seguros']
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 interface StructuredDocumentUploaderProps {
@@ -333,6 +402,13 @@ export function StructuredDocumentUploader({
     <div className="space-y-3">
       {hasDeclarationSlot && (
         <DeclarationBanner
+          providerType={providerType}
+          entityType={entityType}
+          partnerInfo={partnerInfo}
+        />
+      )}
+      {CONTRACT_PROVIDER_TYPES.includes(providerType) && (
+        <ContractBanner
           providerType={providerType}
           entityType={entityType}
           partnerInfo={partnerInfo}

@@ -176,6 +176,7 @@ export function InvitePage() {
               {partnerInfo === null && (
                 <PartnerInfoStep
                   entityType={invitation.entity_type}
+                  providerType={invitation.provider_type}
                   onContinue={setPartnerInfo}
                 />
               )}

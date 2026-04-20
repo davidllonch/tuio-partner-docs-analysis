@@ -11,6 +11,8 @@ import markdown as md_lib
 import weasyprint
 import nh3
 
+from pydantic import BaseModel
+
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -259,6 +261,7 @@ async def create_submission(
     invitation_token: Optional[str] = Form(None),
     not_applicable_slots: Optional[str] = Form(None),
     partner_info: Optional[str] = Form(None),
+    contract_data: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
@@ -376,6 +379,7 @@ async def create_submission(
         invitation_id=invitation.id if invitation else None,
         not_applicable_slots=not_applicable_slots,
         partner_info=partner_info,
+        contract_data=contract_data,
     )
     db.add(submission)
     await db.flush()
@@ -753,6 +757,35 @@ async def reanalyse_submission(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Reanalysis failed. Please try again or contact support.",
         )
+
+
+# ---------------------------------------------------------------------------
+# PATCH /submissions/{submission_id}/contract-data  (JWT required)
+# ---------------------------------------------------------------------------
+
+
+class ContractDataUpdate(BaseModel):
+    contract_data: str
+
+
+@router.patch("/submissions/{submission_id}/contract-data")
+async def update_contract_data(
+    submission_id: uuid.UUID,
+    body: ContractDataUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_analyst: Analyst = Depends(get_current_analyst),
+):
+    """
+    Save or update the contract data (fields + commissions) for a submission.
+    Analysts call this after configuring commission tiers for the partner contract.
+    """
+    result = await db.execute(select(Submission).where(Submission.id == submission_id))
+    submission = result.scalar_one_or_none()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    submission.contract_data = body.contract_data
+    await db.commit()
+    return {"ok": True}
 
 
 # ── PDF Report Download ───────────────────────────────────────────────────────
