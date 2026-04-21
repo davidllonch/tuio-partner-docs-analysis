@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { Upload, CheckCircle, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAllDeclarationTemplates, useUploadDeclarationTemplate } from '../hooks/useDeclarationTemplates'
