@@ -278,7 +278,7 @@ async def _call_anthropic(
     client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
     response = await client.messages.create(
         model=model,
-        max_tokens=1800,
+        max_tokens=4096,
         system=[
             {
                 "type": "text",
@@ -304,7 +304,7 @@ async def _call_openai(
 
     response = await openai_client.chat.completions.create(
         model="gpt-4o",
-        max_tokens=1800,
+        max_tokens=4096,
         messages=[
             {"role": "system", "content": KYC_SYSTEM_PROMPT},
             {"role": "user", "content": openai_content},

@@ -145,20 +145,40 @@ def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
     Using lxml's findall on the raw XML element (para._p) guarantees we find
     ALL <w:t> nodes — including those nested inside <w:hyperlink>, <w:ins>
     (tracked changes), or other wrapper elements that para.runs would miss.
+
+    Strategy:
+      Pass 1 — try replacing within each individual <w:t> element. This preserves
+               per-run formatting (bold, underline, etc.) because we never move text
+               between runs. If a placeholder lives entirely inside one run, it is
+               replaced in-place without touching any other run.
+      Pass 2 — if any placeholders still remain (they span multiple runs), fall back
+               to the "collapse all into first element" approach. This loses per-run
+               formatting for the affected paragraph but is the only way to handle
+               placeholders whose characters were split across run boundaries by Word.
     """
     w_t_elems = p_elem.findall(".//" + _W_NS + "t")
     if not w_t_elems:
         return
 
+    # Pass 1: per-run replacement (preserves formatting)
+    for elem in w_t_elems:
+        if not elem.text:
+            continue
+        for placeholder, value in replacements.items():
+            if placeholder in elem.text:
+                elem.text = elem.text.replace(placeholder, value)
+
+    # Pass 2: check for placeholders that span multiple runs
     full_text = "".join(elem.text or "" for elem in w_t_elems)
-    if not any(ph in full_text for ph in replacements):
+    remaining = {ph: v for ph, v in replacements.items() if ph in full_text}
+    if not remaining:
         return
 
+    # Fallback: collapse all text into the first element (loses per-run formatting,
+    # but is the only way to handle placeholders split across run boundaries)
     new_text = full_text
-    for placeholder, value in replacements.items():
+    for placeholder, value in remaining.items():
         new_text = new_text.replace(placeholder, value)
-
-    # Write the replaced text into the first <w:t>, clear the rest
     w_t_elems[0].text = new_text
     for elem in w_t_elems[1:]:
         elem.text = ""
