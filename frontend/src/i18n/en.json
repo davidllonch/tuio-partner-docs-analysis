@@ -4,7 +4,9 @@
     "invitations": "Invitations",
     "team": "Team",
     "declarationTemplates": "Declaration Templates",
-    "contractTemplates": "Contracts"
+    "contractTemplates": "Contract Templates",
+    "partners": "Partners",
+    "templates": "Templates"
   },
   "landing": {
     "title": "KYC/KYB for Tuio Partners",
@@ -243,6 +245,8 @@
     "direccion_notificaciones": "Postal address for notifications",
     "contacto_notificaciones": "Contact person for notifications",
     "poder": "Condition or power of the legal representative",
+    "poderPlaceholder": "Select an option…",
+    "poderOtro": "Specify…",
     "clave_dgs": "DGSFP Key"
   },
   "structuredUpload": {

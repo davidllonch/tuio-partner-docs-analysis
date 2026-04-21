@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -78,8 +78,19 @@ function PJForm({ onSubmit, providerType }: { onSubmit: (data: PartnerInfoPJ) =>
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<PJFormValues>({ resolver: zodResolver(schema) })
+
+  const PODER_OPTIONS = [
+    'Administrador único',
+    'Administrador solidario',
+    'Administrador mancomunado',
+    'Apoderado',
+  ]
+  const PODER_OTRO = 'OTRO'
+  const [poderSelect, setPoderSelect] = useState('')
+  const isPoderOtro = poderSelect === PODER_OTRO
 
   const submit = (data: PJFormValues) => {
     onSubmit({ entity_type: 'PJ', ...data })
@@ -133,12 +144,35 @@ function PJForm({ onSubmit, providerType }: { onSubmit: (data: PartnerInfoPJ) =>
       </Field>
 
       <Field id="poder" label={t('partnerInfo.poder')} error={errors.poder?.message}>
-        <input
-          id="poder"
-          type="text"
-          className={inputClass(!!errors.poder)}
-          {...register('poder')}
-        />
+        <select
+          id="poder-select"
+          className={inputClass(!!errors.poder && !isPoderOtro)}
+          value={poderSelect}
+          onChange={(e) => {
+            const val = e.target.value
+            setPoderSelect(val)
+            if (val !== PODER_OTRO) {
+              setValue('poder', val, { shouldValidate: true })
+            } else {
+              setValue('poder', '', { shouldValidate: false })
+            }
+          }}
+        >
+          <option value="">{t('partnerInfo.poderPlaceholder')}</option>
+          {PODER_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+          <option value={PODER_OTRO}>Otro</option>
+        </select>
+        {isPoderOtro && (
+          <input
+            id="poder"
+            type="text"
+            className={`mt-2 ${inputClass(!!errors.poder)}`}
+            placeholder={t('partnerInfo.poderOtro')}
+            {...register('poder')}
+          />
+        )}
       </Field>
 
       <Field id="email" label={t('partnerInfo.email')} error={errors.email?.message}>

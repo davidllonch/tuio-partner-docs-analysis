@@ -1,13 +1,11 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { LogOut, UserPlus, Loader2, Users, KeyRound } from 'lucide-react'
+import { UserPlus, Loader2, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAnalysts, useCreateAnalyst } from '../hooks/useAnalysts'
-import { useCurrentAnalyst, useLogout } from '../hooks/useAuth'
+import { useCurrentAnalyst } from '../hooks/useAuth'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
-import { ChangePasswordModal } from '../components/ui/ChangePasswordModal'
-import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
 import { useToast } from '../components/ui/Toast'
+import { AnalystHeader } from '../components/layout/AnalystHeader'
 import axios from 'axios'
 
 function formatDate(iso: string): string {
@@ -21,12 +19,10 @@ function formatDate(iso: string): string {
 export function TeamPage() {
   const { data: analysts, isLoading, isError } = useAnalysts()
   const { data: currentAnalyst } = useCurrentAnalyst()
-  const logout = useLogout()
   const createMutation = useCreateAnalyst()
   const { toast } = useToast()
   const { t } = useTranslation()
 
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
@@ -61,67 +57,7 @@ export function TeamPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <img src="/logo-tuio.png" alt="Tuio" className="h-8" />
-              </div>
-              <nav className="hidden sm:flex items-center gap-1">
-                <Link
-                  to="/dashboard"
-                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  {t('nav.submissions')}
-                </Link>
-                <Link
-                  to="/invitations"
-                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  {t('nav.invitations')}
-                </Link>
-                <Link
-                  to="/team"
-                  className="px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg"
-                >
-                  {t('nav.team')}
-                </Link>
-                <Link
-                  to="/declaration-templates"
-                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  {t('nav.declarationTemplates')}
-                </Link>
-              </nav>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <LanguageSwitcher />
-              {currentAnalyst && (
-                <span className="hidden sm:block text-sm text-gray-600">
-                  {currentAnalyst.full_name}
-                </span>
-              )}
-              <button
-                onClick={() => setShowPasswordModal(true)}
-                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <KeyRound className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('auth.changePassword')}</span>
-              </button>
-              <button
-                onClick={logout}
-                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('auth.logout')}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AnalystHeader />
 
       {/* Main content */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -268,9 +204,6 @@ export function TeamPage() {
         )}
       </main>
 
-      {showPasswordModal && (
-        <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />
-      )}
     </div>
   )
 }

@@ -1,13 +1,10 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { LogOut, KeyRound, Upload, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload, CheckCircle, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAllContractTemplates, useUploadContractTemplate } from '../hooks/useContractTemplates'
-import { useCurrentAnalyst, useLogout } from '../hooks/useAuth'
-import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
-import { ChangePasswordModal } from '../components/ui/ChangePasswordModal'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { useToast } from '../components/ui/Toast'
+import { AnalystHeader } from '../components/layout/AnalystHeader'
 import type { ProviderType } from '../lib/types'
 
 // Contract templates apply to these 3 provider types only (not agencia_seguros)
@@ -43,10 +40,7 @@ function formatDate(iso: string): string {
 
 export function ContractTemplatesPage() {
   const { t } = useTranslation()
-  const { data: analyst } = useCurrentAnalyst()
-  const logout = useLogout()
   const { toast } = useToast()
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   const { data, isLoading } = useAllContractTemplates()
   const uploadMutation = useUploadContractTemplate()
@@ -73,56 +67,7 @@ export function ContractTemplatesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Top navigation bar */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-6">
-              <img src="/logo-tuio.png" alt="Tuio" className="h-8" />
-              <nav className="hidden sm:flex items-center gap-1">
-                <Link to="/dashboard" className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
-                  {t('nav.submissions')}
-                </Link>
-                <Link to="/invitations" className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
-                  {t('nav.invitations')}
-                </Link>
-                <Link to="/team" className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
-                  {t('nav.team')}
-                </Link>
-                <Link to="/declaration-templates" className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
-                  {t('nav.declarationTemplates')}
-                </Link>
-                <Link to="/contract-templates" className="px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg">
-                  {t('nav.contractTemplates')}
-                </Link>
-              </nav>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <LanguageSwitcher />
-              {analyst && (
-                <span className="hidden sm:block text-sm text-gray-600">{analyst.full_name}</span>
-              )}
-              <button
-                onClick={() => setShowPasswordModal(true)}
-                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                aria-label={t('auth.changePassword')}
-              >
-                <KeyRound className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('auth.changePassword')}</span>
-              </button>
-              <button
-                onClick={logout}
-                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                aria-label={t('auth.logout')}
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('auth.logout')}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AnalystHeader />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
@@ -212,7 +157,6 @@ export function ContractTemplatesPage() {
         )}
       </main>
 
-      {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
     </div>
   )
 }

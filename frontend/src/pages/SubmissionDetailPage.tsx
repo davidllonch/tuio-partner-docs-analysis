@@ -1,15 +1,14 @@
 import { useParams, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { ArrowLeft, LogOut, Calendar, MapPin, Building2, User, ClipboardList, FileSignature, Loader2, X, Download } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Building2, User, ClipboardList, FileSignature, Loader2, X, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSubmission } from '../hooks/useSubmissions'
-import { useCurrentAnalyst, useLogout } from '../hooks/useAuth'
 import { AIReportPanel } from '../components/detail/AIReportPanel'
 import { DocumentDownloadList } from '../components/detail/DocumentDownloadList'
 import { ReanalysePanel } from '../components/detail/ReanalysePanel'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
-import { LanguageSwitcher } from '../components/ui/LanguageSwitcher'
+import { AnalystHeader } from '../components/layout/AnalystHeader'
 import { useToast } from '../components/ui/Toast'
 import { updateContractData, generateContractPdfFull } from '../lib/api'
 import { PROVIDER_TYPE_LABELS, ENTITY_TYPE_LABELS } from '../lib/types'
@@ -43,8 +42,6 @@ function formatDate(iso: string): string {
 export function SubmissionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { data: submission, isLoading, isError } = useSubmission(id!)
-  const { data: analyst } = useCurrentAnalyst()
-  const logout = useLogout()
   const { t } = useTranslation()
   const { toast } = useToast()
 
@@ -147,33 +144,7 @@ export function SubmissionDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Top navigation bar — same as dashboard */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <img src="/logo-tuio.png" alt="Tuio" className="h-8" />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <LanguageSwitcher />
-              {analyst && (
-                <span className="hidden sm:block text-sm text-gray-600">
-                  {analyst.full_name}
-                </span>
-              )}
-              <button
-                onClick={logout}
-                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                aria-label={t('auth.logout')}
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('auth.logout')}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AnalystHeader />
 
       {/* Sub-header: back link */}
       <div className="bg-white border-b border-gray-100">
