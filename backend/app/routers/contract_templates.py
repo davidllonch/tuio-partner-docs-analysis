@@ -260,20 +260,61 @@ def _iter_all_tables_inline(doc_or_cells):
                 queue.extend(cell.tables)
 
 
-def _remove_cell_shading(cell) -> None:
+def _iter_all_tables_inline_from_tables(tables):
+    """Same as _iter_all_tables_inline but accepts a plain list of tables."""
+    queue = list(tables)
+    while queue:
+        table = queue.pop(0)
+        yield table
+        for row in table.rows:
+            for cell in row.cells:
+                queue.extend(cell.tables)
+
+
+def _strip_all_highlights(doc: DocxDocument) -> None:
     """
-    Remove the background shading (<w:shd>) from a table cell's properties.
-    DOCX templates often highlight placeholder cells in yellow or another colour
-    to make them easy to spot. Once the placeholder is replaced with real data,
-    this highlight should be cleared so the final PDF looks clean.
+    Remove every <w:shd> and <w:highlight> element from the entire document body,
+    including all headers and footers.
+
+    DOCX templates use cell shading, paragraph shading, run shading, or run
+    highlighting (yellow/orange/etc.) to mark placeholder fields visually. Once
+    all placeholders are replaced this function cleans the document so the final
+    PDF has no leftover colour backgrounds.
+
+    Covers all three levels where colour can live:
+      • <w:tcPr><w:shd>   — table cell background
+      • <w:pPr><w:shd>    — paragraph background
+      • <w:rPr><w:shd>    — run background shading
+      • <w:rPr><w:highlight> — run highlight (yellow, green, etc.)
     """
-    tc = cell._tc
-    tc_pr = tc.find(_W_NS + "tcPr")
-    if tc_pr is None:
-        return
-    shd = tc_pr.find(_W_NS + "shd")
-    if shd is not None:
-        tc_pr.remove(shd)
+    _STRIP_TAGS = {_W_NS + "shd", _W_NS + "highlight"}
+
+    def _strip_tree(root_elem) -> None:
+        # Collect first to avoid mutating while iterating
+        to_remove = [e for e in root_elem.iter() if e.tag in _STRIP_TAGS]
+        for elem in to_remove:
+            parent = elem.getparent()
+            if parent is not None:
+                parent.remove(elem)
+
+    # Main document body
+    _strip_tree(doc.element.body)
+
+    # Headers and footers for every section
+    for section in doc.sections:
+        for hdr_ftr in (
+            section.header,
+            section.footer,
+            section.first_page_header,
+            section.first_page_footer,
+            section.even_page_header,
+            section.even_page_footer,
+        ):
+            try:
+                if hdr_ftr is not None and hdr_ftr._element is not None:
+                    _strip_tree(hdr_ftr._element)
+            except Exception:
+                pass  # Some sections may not have all header/footer variants
 
 
 def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str]) -> None:
@@ -282,28 +323,36 @@ def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str
 
     Covers:
       - All body paragraphs (top-level text)
-      - All table cells, including tables nested inside table cells
-        (python-docx's doc.tables only returns top-level tables; we need BFS)
-
-    Also removes background cell shading from any cell that previously held a
-    placeholder — DOCX templates colour these cells for visibility, but the
-    final PDF should have no highlight.
+      - All table cells, including nested tables (BFS traversal)
+      - Document headers and footers for every section
     """
-    # Body paragraphs
-    for para in doc.paragraphs:
-        _replace_in_paragraph_elem(para._p, replacements)
+    def _process_paragraphs_and_tables(paragraphs, tables) -> None:
+        for para in paragraphs:
+            _replace_in_paragraph_elem(para._p, replacements)
+        for table in _iter_all_tables_inline_from_tables(tables):
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        _replace_in_paragraph_elem(para._p, replacements)
 
-    # All tables — BFS to reach nested tables too
-    for table in _iter_all_tables_inline(doc):
-        for row in table.rows:
-            for cell in row.cells:
-                # Check BEFORE replacement whether this cell contained a placeholder
-                had_placeholder = any(ph in cell.text for ph in replacements)
-                for para in cell.paragraphs:
-                    _replace_in_paragraph_elem(para._p, replacements)
-                # If it held a placeholder, strip the highlight colour
-                if had_placeholder:
-                    _remove_cell_shading(cell)
+    # Main body
+    _process_paragraphs_and_tables(doc.paragraphs, doc.tables)
+
+    # Headers and footers
+    for section in doc.sections:
+        for hdr_ftr in (
+            section.header,
+            section.footer,
+            section.first_page_header,
+            section.first_page_footer,
+            section.even_page_header,
+            section.even_page_footer,
+        ):
+            try:
+                if hdr_ftr is not None:
+                    _process_paragraphs_and_tables(hdr_ftr.paragraphs, hdr_ftr.tables)
+            except Exception:
+                pass
 
 
 async def _convert_docx_to_pdf_via_libreoffice(docx_bytes: bytes) -> bytes:
@@ -807,6 +856,8 @@ async def generate_contract_pdf(
     replacements = _build_partner_replacements(entity_type, body.partner_info)
     _replace_placeholders_in_docx(doc, replacements)
     # Commission placeholders and [ACTIVIDAD] are deliberately left as-is.
+    # Strip all template highlight colours (cell/run/paragraph shading).
+    _strip_all_highlights(doc)
 
     # ── 2. Save patched DOCX to an in-memory buffer ───────────────────────────
     docx_buffer = io.BytesIO()
@@ -908,15 +959,18 @@ async def generate_full_contract_pdf(
     # Always call _fill_commission_rows — if the list is empty it removes the template row
     _fill_commission_rows(doc, non_empty_commissions)
 
-    # ── 5. Save patched DOCX to an in-memory buffer ───────────────────────────
+    # ── 5. Strip all template highlight colours ───────────────────────────────
+    _strip_all_highlights(doc)
+
+    # ── 6. Save patched DOCX to an in-memory buffer ───────────────────────────
     docx_buffer = io.BytesIO()
     doc.save(docx_buffer)
     docx_bytes = docx_buffer.getvalue()
 
-    # ── 6. Convert patched DOCX → PDF via LibreOffice ────────────────────────
+    # ── 7. Convert patched DOCX → PDF via LibreOffice ────────────────────────
     pdf_bytes = await _convert_docx_to_pdf_via_libreoffice(docx_bytes)
 
-    # ── 7. Stream back ────────────────────────────────────────────────────────
+    # ── 8. Stream back ────────────────────────────────────────────────────────
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -1304,6 +1358,26 @@ async def diag_all_templates(
                         _collect(p, f"t{ti}r{ri}c{ci}p{pi}")
                     queue.extend(cell.tables)
             ti += 1
+
+        # Also scan headers and footers (placeholders may live there)
+        for si, section in enumerate(doc.sections):
+            for hf_name, hf_obj in [
+                ("hdr", section.header), ("ftr", section.footer),
+                ("hdr1", section.first_page_header), ("ftr1", section.first_page_footer),
+                ("hdrev", section.even_page_header), ("ftrev", section.even_page_footer),
+            ]:
+                try:
+                    if hf_obj is None:
+                        continue
+                    for pi, p in enumerate(hf_obj.paragraphs):
+                        _collect(p, f"s{si}_{hf_name}_p{pi}")
+                    for thi, tbl in enumerate(hf_obj.tables):
+                        for ri, row in enumerate(tbl.rows):
+                            for ci, cell in enumerate(row.cells):
+                                for pi, p in enumerate(cell.paragraphs):
+                                    _collect(p, f"s{si}_{hf_name}_t{thi}r{ri}c{ci}p{pi}")
+                except Exception:
+                    pass
 
         all_text = " ".join(e["full_text"] for e in entries)
         summary = {ph: (ph in all_text) for ph in all_expected}
