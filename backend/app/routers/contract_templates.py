@@ -68,7 +68,7 @@ PARTNER_PF_MAP = {
     "[EMAIL]": "email",
     "[CONTACTO]": "contacto_notificaciones",
     "[CLAVE DGS]": "clave_dgs",  # correduria only but safe to include for all
-    "[CORREDURIA]": "nombre_apellidos",  # PF contracts: company name = individual's name
+    "[CORREDURÍA]": "nombre_apellidos",  # PF contracts: company name = individual's name
 }
 
 # Placeholders filled from partner_info for Persona Jurídica submissions
@@ -77,7 +77,7 @@ PARTNER_PJ_MAP = {
     "[NIF]": "nif_representante",
     "[CIF]": "cif",
     "[SOCIEDAD]": "razon_social",
-    "[CORREDURIA]": "razon_social",  # PJ contracts: company name = razón social
+    "[CORREDURÍA]": "razon_social",  # PJ contracts: company name = razón social
     "[DOMICILIO]": "domicilio_social",
     "[DOMICILIO SOCIAL]": "domicilio_social",
     "[PODER]": "poder",
@@ -182,19 +182,16 @@ def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
     """
     Replace placeholder strings in a single paragraph XML element.
 
-    Using lxml's findall on the raw XML element (para._p) guarantees we find
-    ALL <w:t> nodes — including those nested inside <w:hyperlink>, <w:ins>
-    (tracked changes), or other wrapper elements that para.runs would miss.
-
-    Strategy:
-      Pass 1 — try replacing within each individual <w:t> element. This preserves
-               per-run formatting (bold, underline, etc.) because we never move text
-               between runs. If a placeholder lives entirely inside one run, it is
-               replaced in-place without touching any other run.
-      Pass 2 — if any placeholders still remain (they span multiple runs), fall back
-               to the "collapse all into first element" approach. This loses per-run
-               formatting for the affected paragraph but is the only way to handle
-               placeholders whose characters were split across run boundaries by Word.
+    Three-pass strategy:
+      Pass 1 — replace within each individual <w:t> element (handles placeholders
+               fully contained in one run; preserves per-run formatting).
+      Pass 2 — sliding-window for split-run placeholders: handles the common Word
+               pattern where the opening '[' is the last char of run N, the inner
+               name is the entirety of run N+1, and ']' is the first char of run N+2.
+               Only the three involved characters are modified; all other runs keep
+               their original text and formatting unchanged.
+      Pass 3 — full-collapse fallback for any remaining cross-run placeholders.
+               Loses per-run formatting for the paragraph but always works.
     """
     w_t_elems = p_elem.findall(".//" + _W_NS + "t")
     if not w_t_elems:
@@ -208,14 +205,33 @@ def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
             if placeholder in elem.text:
                 elem.text = elem.text.replace(placeholder, value)
 
-    # Pass 2: check for placeholders that span multiple runs
+    # Pass 2: sliding-window for split-run placeholders
+    # Pattern: w_t[i-1] ends with "[", w_t[i] == "INNER_NAME", w_t[i+1] starts with "]"
+    for placeholder, value in replacements.items():
+        if len(placeholder) < 3 or placeholder[0] != "[" or placeholder[-1] != "]":
+            continue
+        inner = placeholder[1:-1]  # strip the [ and ]
+        i = 1
+        while i < len(w_t_elems) - 1:
+            curr_text = w_t_elems[i].text or ""
+            if curr_text == inner:
+                prev_text = w_t_elems[i - 1].text or ""
+                next_text = w_t_elems[i + 1].text or ""
+                if prev_text.endswith("[") and next_text.startswith("]"):
+                    # Found a split placeholder — fix it in-place
+                    w_t_elems[i - 1].text = prev_text[:-1]   # strip trailing [
+                    w_t_elems[i].text = value                # fill replacement
+                    w_t_elems[i + 1].text = next_text[1:]    # strip leading ]
+                    i += 2  # skip past the replaced placeholder
+                    continue
+            i += 1
+
+    # Pass 3: full-collapse fallback for any remaining cross-run placeholders
     full_text = "".join(elem.text or "" for elem in w_t_elems)
     remaining = {ph: v for ph, v in replacements.items() if ph in full_text}
     if not remaining:
         return
 
-    # Fallback: collapse all text into the first element (loses per-run formatting,
-    # but is the only way to handle placeholders split across run boundaries)
     new_text = full_text
     for placeholder, value in remaining.items():
         new_text = new_text.replace(placeholder, value)
@@ -369,6 +385,7 @@ def _replace_commission_placeholders_in_row(row, commission: dict) -> None:
     replacements = {
         "[PRODUCTO DE SEGURO]": commission.get("producto", ""),
         "[PRIMA NETA TRAMO 1]": commission.get("prima", ""),
+        "[PRIMA NETA TRAMO 2]": commission.get("prima_tramo2", ""),
         "[COMISIÓN NP]": commission.get("comision_np", ""),
         "[COMISIÓN CARTERA]": commission.get("comision_cartera", ""),
     }
@@ -382,13 +399,14 @@ def _replace_commission_in_tr(tr_elem, commission: dict) -> None:
     replacements = {
         "[PRODUCTO DE SEGURO]": commission.get("producto", ""),
         "[PRIMA NETA TRAMO 1]": commission.get("prima", ""),
+        "[PRIMA NETA TRAMO 2]": commission.get("prima_tramo2", ""),
         "[COMISIÓN NP]": commission.get("comision_np", ""),
         "[COMISIÓN CARTERA]": commission.get("comision_cartera", ""),
     }
-    for t_elem in tr_elem.findall(".//" + _W_NS + "t"):
-        for ph, val in replacements.items():
-            if t_elem.text and ph in t_elem.text:
-                t_elem.text = t_elem.text.replace(ph, val)
+    # Use _replace_in_paragraph_elem for each <w:p> inside this row,
+    # so split-run placeholders are also handled correctly.
+    for p_elem in tr_elem.findall(".//" + _W_NS + "p"):
+        _replace_in_paragraph_elem(p_elem, replacements)
 
 
 def _iter_all_tables(doc: DocxDocument):
@@ -408,50 +426,64 @@ def _iter_all_tables(doc: DocxDocument):
 
 def _fill_commission_rows(doc: DocxDocument, commission_rows: list[dict]) -> None:
     """
-    Find the table row containing [PRODUCTO DE SEGURO] and fill it with commission data.
+    Find the commission template rows and fill them with commission data.
 
-    The template is expected to have exactly one row with commission placeholders.
-    For each commission entry:
-      - The first entry fills the template row in place.
-      - Each subsequent entry gets a deep-copied duplicate of the ORIGINAL template row
-        (before any modifications) inserted below.
+    The DOCX template has TWO consecutive rows with [PRODUCTO DE SEGURO]:
+      - Row A: contains [PRIMA NETA TRAMO 1]
+      - Row B: contains [PRIMA NETA TRAMO 2]
+
+    For each commission entry the analyst provides:
+      - Both rows A and B are duplicated as a pair.
+      - Each pair is filled with the commission data.
+
+    If commission_rows is empty, both template rows are removed.
 
     Uses _iter_all_tables to also search inside nested tables.
     """
     for table in _iter_all_tables(doc):
-        for row in table.rows:
+        for i, row in enumerate(table.rows):
             row_text = "".join(cell.text for cell in row.cells)
             if "[PRODUCTO DE SEGURO]" not in row_text:
                 continue
 
-            # Found the template row — get its XML element
-            template_tr = row._tr
-            parent = template_tr.getparent()
-            insert_after = template_tr
+            # Found the first template row. Check if the immediately following row
+            # is also a commission template row (the TRAMO 2 row).
+            template_trs = [row._tr]
+            if i + 1 < len(table.rows):
+                next_row = table.rows[i + 1]
+                next_text = "".join(cell.text for cell in next_row.cells)
+                if "[PRODUCTO DE SEGURO]" in next_text or "[PRIMA NETA TRAMO 2]" in next_text:
+                    template_trs.append(next_row._tr)
 
-            # ① Make all deep copies BEFORE modifying the template row.
-            #    This ensures each copy has the original placeholder text intact.
-            additional = []
-            for commission in commission_rows[1:]:
-                new_tr = copy.deepcopy(template_tr)
-                additional.append((new_tr, commission))
+            parent = template_trs[0].getparent()
+            insert_after = template_trs[-1]  # insert new pairs after the last template row
 
-            # ② Fill the template row with the first commission (or remove if empty)
-            if commission_rows:
-                _replace_commission_placeholders_in_row(row, commission_rows[0])
-            else:
-                # No commission data — remove the placeholder row entirely
-                parent.remove(template_tr)
+            if not commission_rows:
+                # No data — remove all template rows
+                for tr in template_trs:
+                    parent.remove(tr)
                 return
 
-            # ③ Insert and fill the additional copies
-            for new_tr, commission in additional:
-                insert_idx = list(parent).index(insert_after) + 1
-                parent.insert(insert_idx, new_tr)
-                insert_after = new_tr
-                _replace_commission_in_tr(new_tr, commission)
+            # ① Make deep copies of ALL template rows BEFORE modifying them.
+            #    Each commission (after the first) gets its own copy of the pair.
+            additional: list[tuple[list, dict]] = []
+            for commission in commission_rows[1:]:
+                tr_copies = [copy.deepcopy(tr) for tr in template_trs]
+                additional.append((tr_copies, commission))
 
-            return  # Only process the first matching table
+            # ② Fill the original template rows with the first commission.
+            for tr in template_trs:
+                _replace_commission_in_tr(tr, commission_rows[0])
+
+            # ③ Insert and fill the copies for remaining commissions.
+            for tr_copies, commission in additional:
+                for new_tr in tr_copies:
+                    insert_idx = list(parent).index(insert_after) + 1
+                    parent.insert(insert_idx, new_tr)
+                    insert_after = new_tr
+                    _replace_commission_in_tr(new_tr, commission)
+
+            return  # Only process the first matching commission table
 
 
 def _extract_placeholder_context(doc: DocxDocument, placeholder: str) -> str | None:

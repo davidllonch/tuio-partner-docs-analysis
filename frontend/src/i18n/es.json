@@ -96,6 +96,7 @@
     "commissions": "Comisiones",
     "commissionProduct": "Producto de seguro",
     "commissionPrima": "Prima neta tramo 1",
+    "commissionPrima2": "Prima neta tramo 2",
     "commissionNP": "Comisión NP (%)",
     "commissionCartera": "Comisión cartera (%)",
     "addCommissionRow": "Añadir producto",

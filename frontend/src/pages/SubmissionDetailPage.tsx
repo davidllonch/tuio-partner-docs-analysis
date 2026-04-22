@@ -19,6 +19,7 @@ const CONTRACT_PROVIDER_TYPES = ['colaborador_externo', 'generador_leads', 'corr
 interface CommissionRow {
   producto: string
   prima: string
+  prima_tramo2: string
   comision_np: string
   comision_cartera: string
 }
@@ -29,7 +30,7 @@ interface ContractFormState {
   siNoFields: Record<string, string>  // { "Vida": "Sí", "Auto": "No" }
 }
 
-const EMPTY_ROW: CommissionRow = { producto: '', prima: '', comision_np: '', comision_cartera: '' }
+const EMPTY_ROW: CommissionRow = { producto: '', prima: '', prima_tramo2: '', comision_np: '', comision_cartera: '' }
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
@@ -356,6 +357,9 @@ export function SubmissionDetailPage() {
                               {t('detail.commissionPrima')}
                             </th>
                             <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">
+                              {t('detail.commissionPrima2')}
+                            </th>
+                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">
                               {t('detail.commissionNP')}
                             </th>
                             <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">
@@ -382,6 +386,15 @@ export function SubmissionDetailPage() {
                                   value={row.prima}
                                   onChange={(e) =>
                                     updateCommissionRow(idx, 'prima', e.target.value)
+                                  }
+                                />
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <input
+                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                  value={row.prima_tramo2}
+                                  onChange={(e) =>
+                                    updateCommissionRow(idx, 'prima_tramo2', e.target.value)
                                   }
                                 />
                               </td>

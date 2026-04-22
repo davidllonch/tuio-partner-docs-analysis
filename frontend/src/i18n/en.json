@@ -96,6 +96,7 @@
     "commissions": "Commissions",
     "commissionProduct": "Insurance product",
     "commissionPrima": "Net premium tranche 1",
+    "commissionPrima2": "Net premium tranche 2",
     "commissionNP": "NP commission (%)",
     "commissionCartera": "Portfolio commission (%)",
     "addCommissionRow": "Add product",
