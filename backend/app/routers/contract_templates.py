@@ -224,12 +224,39 @@ def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
         elem.text = ""
 
 
+def _iter_all_tables_inline(doc_or_cells):
+    """
+    BFS generator that yields every table in the document including nested ones.
+    Accepts either a Document (uses doc.tables) or a list of cells.
+    This is defined early so _replace_placeholders_in_docx can use it.
+    """
+    if hasattr(doc_or_cells, "tables"):
+        queue = list(doc_or_cells.tables)
+    else:
+        queue = list(doc_or_cells)
+    while queue:
+        table = queue.pop(0)
+        yield table
+        for row in table.rows:
+            for cell in row.cells:
+                queue.extend(cell.tables)
+
+
 def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str]) -> None:
-    """Replace placeholder strings (e.g. '[CAMPO]') in a python-docx Document."""
+    """
+    Replace placeholder strings (e.g. '[CAMPO]') everywhere in a python-docx Document.
+
+    Covers:
+      - All body paragraphs (top-level text)
+      - All table cells, including tables nested inside table cells
+        (python-docx's doc.tables only returns top-level tables; we need BFS)
+    """
+    # Body paragraphs
     for para in doc.paragraphs:
         _replace_in_paragraph_elem(para._p, replacements)
 
-    for table in doc.tables:
+    # All tables — BFS to reach nested tables too
+    for table in _iter_all_tables_inline(doc):
         for row in table.rows:
             for cell in row.cells:
                 for para in cell.paragraphs:
@@ -798,8 +825,12 @@ async def generate_full_contract_pdf(
         _fill_si_no_fields(doc, si_no_fields)
 
     # ── 4. Handle commission table rows ──────────────────────────────────────
-    if commission_rows:
-        _fill_commission_rows(doc, commission_rows)
+    # Filter out empty rows (producto is required; rows with no producto are skipped)
+    non_empty_commissions = [
+        r for r in commission_rows if r.get("producto", "").strip()
+    ]
+    # Always call _fill_commission_rows — if the list is empty it removes the template row
+    _fill_commission_rows(doc, non_empty_commissions)
 
     # ── 5. Save patched DOCX to an in-memory buffer ───────────────────────────
     docx_buffer = io.BytesIO()
@@ -1022,3 +1053,97 @@ async def upload_template(
             else None
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/contract-templates/{provider_type}/{entity_type}/debug  (JWT)
+# Diagnostic endpoint — dumps all text runs in the DOCX to help identify
+# why placeholders are not being found or replaced.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/contract-templates/{provider_type}/{entity_type}/debug")
+async def debug_template(
+    provider_type: str,
+    entity_type: str,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    current_analyst: Analyst = Depends(get_current_analyst),
+):
+    """
+    Diagnostic endpoint: returns the full text content of the contract template
+    at run level, so we can see exactly how placeholders are stored in the DOCX XML.
+    Only accessible to authenticated analysts.
+    """
+    if provider_type not in VALID_PROVIDER_TYPES:
+        raise HTTPException(status_code=422, detail="Invalid provider_type")
+    if entity_type not in VALID_ENTITY_TYPES:
+        raise HTTPException(status_code=422, detail="entity_type must be 'PF' or 'PJ'")
+
+    result = await db.execute(
+        select(ContractTemplate).where(
+            ContractTemplate.provider_type == provider_type,
+            ContractTemplate.entity_type == entity_type,
+        )
+    )
+    template = result.scalar_one_or_none()
+    if template is None:
+        return {"error": "No template uploaded for this combination"}
+    if not os.path.exists(template.file_path):
+        return {"error": "Template file missing on disk", "path": template.file_path}
+
+    try:
+        doc = DocxDocument(template.file_path)
+    except Exception as exc:
+        return {"error": f"Could not open DOCX: {exc}"}
+
+    # All expected placeholders (so we can report which ones are found)
+    all_expected = list(PARTNER_PF_MAP.keys()) + list(PARTNER_PJ_MAP.keys()) + list(ANALYST_MAP.keys()) + COMMISSION_PLACEHOLDERS + ["[SI/NO]", "[DÍA]", "[MES]", "[AÑO]"]
+
+    def _para_debug(para, location: str) -> dict | None:
+        runs = [r.text for r in para.runs]
+        full = para.text
+        found_phs = [ph for ph in all_expected if ph in full]
+        # Also detect partial/split placeholders by looking for bracket chars
+        has_bracket = "[" in full or "]" in full
+        if not full.strip() and not has_bracket:
+            return None
+        return {
+            "location": location,
+            "full_text": full[:200],
+            "runs": runs,
+            "placeholders_found": found_phs,
+            "has_bracket": has_bracket,
+        }
+
+    paragraphs_info = []
+
+    # Body paragraphs
+    for i, para in enumerate(doc.paragraphs):
+        info = _para_debug(para, f"body_para_{i}")
+        if info:
+            paragraphs_info.append(info)
+
+    # All table cells (including nested)
+    table_idx = 0
+    for table in _iter_all_tables(doc):
+        for ri, row in enumerate(table.rows):
+            for ci, cell in enumerate(row.cells):
+                for pi, para in enumerate(cell.paragraphs):
+                    info = _para_debug(
+                        para, f"table{table_idx}_row{ri}_cell{ci}_para{pi}"
+                    )
+                    if info:
+                        paragraphs_info.append(info)
+        table_idx += 1
+
+    # Summary: which expected placeholders were found anywhere
+    all_text = " ".join(p["full_text"] for p in paragraphs_info)
+    found_summary = {ph: (ph in all_text) for ph in all_expected}
+
+    return {
+        "filename": template.original_filename,
+        "placeholder_summary": found_summary,
+        "paragraphs": paragraphs_info,
+        "total_paragraphs_with_content": len(paragraphs_info),
+    }
