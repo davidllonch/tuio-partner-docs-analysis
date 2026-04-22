@@ -59,7 +59,6 @@ export function ReanalysePanel({
         onSuccess: () => {
           toast({
             title: t('detail.reanalyseSuccess'),
-            description: 'Email sent to david.llonch@tuio.com.',
             variant: 'success',
           })
         },

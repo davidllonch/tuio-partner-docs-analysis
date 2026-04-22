@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Calendar, MapPin, Building2, User, ClipboardList, FileSignature, Loader2, X, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSubmission } from '../hooks/useSubmissions'
@@ -10,7 +11,7 @@ import { StatusBadge } from '../components/ui/StatusBadge'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { AnalystHeader } from '../components/layout/AnalystHeader'
 import { useToast } from '../components/ui/Toast'
-import { updateContractData, generateContractPdfFull } from '../lib/api'
+import { updateContractData, generateContractPdfFull, fetchContractPlaceholderContext, fetchSiNoFields } from '../lib/api'
 import { PROVIDER_TYPE_LABELS, ENTITY_TYPE_LABELS } from '../lib/types'
 
 const CONTRACT_PROVIDER_TYPES = ['colaborador_externo', 'generador_leads', 'correduria_seguros']
@@ -25,6 +26,7 @@ interface CommissionRow {
 interface ContractFormState {
   actividad: string
   commissions: CommissionRow[]
+  siNoFields: Record<string, string>  // { "Vida": "Sí", "Auto": "No" }
 }
 
 const EMPTY_ROW: CommissionRow = { producto: '', prima: '', comision_np: '', comision_cartera: '' }
@@ -48,6 +50,7 @@ export function SubmissionDetailPage() {
   const [contractState, setContractState] = useState<ContractFormState>({
     actividad: '',
     commissions: [{ ...EMPTY_ROW }],
+    siNoFields: {},
   })
   const [isSavingContract, setIsSavingContract] = useState(false)
   const [isDownloadingContract, setIsDownloadingContract] = useState(false)
@@ -64,14 +67,32 @@ export function SubmissionDetailPage() {
             Array.isArray(parsed.commissions) && parsed.commissions.length > 0
               ? parsed.commissions
               : [{ ...EMPTY_ROW }],
+          siNoFields: parsed.si_no_fields ?? {},
         })
       } catch {
-        setContractState({ actividad: '', commissions: [{ ...EMPTY_ROW }] })
+        setContractState({ actividad: '', commissions: [{ ...EMPTY_ROW }], siNoFields: {} })
       }
     } else {
-      setContractState({ actividad: '', commissions: [{ ...EMPTY_ROW }] })
+      setContractState({ actividad: '', commissions: [{ ...EMPTY_ROW }], siNoFields: {} })
     }
   }, [submission?.contract_data])
+
+  // Fetch the [ACTIVIDAD] context phrase and SI/NO fields from the template
+  const { data: placeholderContextData } = useQuery({
+    queryKey: ['contract-placeholder-context', submission?.provider_type, submission?.entity_type],
+    queryFn: () => fetchContractPlaceholderContext(submission!.provider_type, submission!.entity_type),
+    enabled: !!submission && CONTRACT_PROVIDER_TYPES.includes(submission.provider_type),
+    staleTime: 60_000,
+  })
+  const actividadContext = placeholderContextData?.context?.ACTIVIDAD ?? null
+
+  const { data: siNoFieldsData } = useQuery({
+    queryKey: ['contract-si-no-fields', submission?.provider_type, submission?.entity_type],
+    queryFn: () => fetchSiNoFields(submission!.provider_type, submission!.entity_type),
+    enabled: !!submission && CONTRACT_PROVIDER_TYPES.includes(submission.provider_type),
+    staleTime: 60_000,
+  })
+  const siNoProducts = siNoFieldsData?.fields ?? []
 
   const updateCommissionRow = (idx: number, field: keyof CommissionRow, value: string) => {
     setContractState((prev) => {
@@ -103,6 +124,7 @@ export function SubmissionDetailPage() {
       await updateContractData(submission.id, {
         fields: { actividad: contractState.actividad },
         commissions: contractState.commissions,
+        si_no_fields: contractState.siNoFields,
       })
       toast({ title: t('detail.saveContractSuccess'), variant: 'success' })
     } catch {
@@ -120,6 +142,7 @@ export function SubmissionDetailPage() {
       const contractData = {
         fields: { actividad: contractState.actividad },
         commissions: contractState.commissions,
+        si_no_fields: contractState.siNoFields,
       }
       const blob = await generateContractPdfFull(
         submission.provider_type,
@@ -280,7 +303,42 @@ export function SubmissionDetailPage() {
                       }
                       className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
                     />
+                    {actividadContext && (
+                      <p className="mt-1 text-xs text-gray-400 italic">
+                        {actividadContext}
+                      </p>
+                    )}
                   </div>
+
+                  {/* Annex I — SI/NO per product */}
+                  {siNoProducts.length > 0 && (
+                    <div className="mb-5">
+                      <p className="text-xs font-medium text-gray-500 mb-2">
+                        {t('detail.siNoSection')}
+                      </p>
+                      <div className="space-y-2">
+                        {siNoProducts.map((product) => (
+                          <div key={product} className="flex items-center justify-between gap-4">
+                            <span className="text-sm text-gray-700 flex-1">{product}</span>
+                            <select
+                              value={contractState.siNoFields[product] ?? ''}
+                              onChange={(e) =>
+                                setContractState((prev) => ({
+                                  ...prev,
+                                  siNoFields: { ...prev.siNoFields, [product]: e.target.value },
+                                }))
+                              }
+                              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 min-w-[90px]"
+                            >
+                              <option value="">—</option>
+                              <option value="Sí">Sí</option>
+                              <option value="No">No</option>
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Commission table */}
                   <div className="mb-4">

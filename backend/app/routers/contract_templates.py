@@ -364,17 +364,35 @@ def _replace_commission_in_tr(tr_elem, commission: dict) -> None:
                 t_elem.text = t_elem.text.replace(ph, val)
 
 
+def _iter_all_tables(doc: DocxDocument):
+    """
+    Yield all tables in the document, including nested ones inside table cells.
+    python-docx's doc.tables only returns top-level tables; nested tables require
+    recursive traversal via cell.tables.
+    """
+    queue = list(doc.tables)
+    while queue:
+        table = queue.pop(0)
+        yield table
+        for row in table.rows:
+            for cell in row.cells:
+                queue.extend(cell.tables)
+
+
 def _fill_commission_rows(doc: DocxDocument, commission_rows: list[dict]) -> None:
     """
-    Find the table row containing [PRODUCTO DE SEGURO] and duplicate it for
-    each commission entry.
+    Find the table row containing [PRODUCTO DE SEGURO] and fill it with commission data.
 
     The template is expected to have exactly one row with commission placeholders.
-    That row is used as the template: the first commission fills it in place,
-    and subsequent commissions each get a deep-copied duplicate inserted below.
+    For each commission entry:
+      - The first entry fills the template row in place.
+      - Each subsequent entry gets a deep-copied duplicate of the ORIGINAL template row
+        (before any modifications) inserted below.
+
+    Uses _iter_all_tables to also search inside nested tables.
     """
-    for table in doc.tables:
-        for row_idx, row in enumerate(table.rows):
+    for table in _iter_all_tables(doc):
+        for row in table.rows:
             row_text = "".join(cell.text for cell in row.cells)
             if "[PRODUCTO DE SEGURO]" not in row_text:
                 continue
@@ -384,21 +402,86 @@ def _fill_commission_rows(doc: DocxDocument, commission_rows: list[dict]) -> Non
             parent = template_tr.getparent()
             insert_after = template_tr
 
-            # Fill the first row (the template row itself) with commission_rows[0]
-            if commission_rows:
-                _replace_commission_placeholders_in_row(row, commission_rows[0])
-
-            # Duplicate for additional rows
+            # ① Make all deep copies BEFORE modifying the template row.
+            #    This ensures each copy has the original placeholder text intact.
+            additional = []
             for commission in commission_rows[1:]:
                 new_tr = copy.deepcopy(template_tr)
-                # Insert after the last inserted row
+                additional.append((new_tr, commission))
+
+            # ② Fill the template row with the first commission (or remove if empty)
+            if commission_rows:
+                _replace_commission_placeholders_in_row(row, commission_rows[0])
+            else:
+                # No commission data — remove the placeholder row entirely
+                parent.remove(template_tr)
+                return
+
+            # ③ Insert and fill the additional copies
+            for new_tr, commission in additional:
                 insert_idx = list(parent).index(insert_after) + 1
                 parent.insert(insert_idx, new_tr)
                 insert_after = new_tr
-                # Replace placeholders in the new row
                 _replace_commission_in_tr(new_tr, commission)
 
-            return  # Only process first matching table
+            return  # Only process the first matching table
+
+
+def _extract_placeholder_context(doc: DocxDocument, placeholder: str) -> str | None:
+    """
+    Return the full text of the first paragraph that contains the given placeholder.
+    Searches both body paragraphs and table cells (including nested tables).
+    Returns None if the placeholder is not found.
+    """
+    for para in doc.paragraphs:
+        if placeholder in para.text:
+            return para.text.strip()
+    for table in _iter_all_tables(doc):
+        for row in table.rows:
+            for cell in row.cells:
+                for para in cell.paragraphs:
+                    if placeholder in para.text:
+                        return para.text.strip()
+    return None
+
+
+def _extract_si_no_fields(doc: DocxDocument) -> list[str]:
+    """
+    Return the label (first-cell text) of every table row that contains [SI/NO].
+    Used to discover which insurance products in Annex I need a Sí/No selection.
+    Searches all tables including nested ones.
+    """
+    results: list[str] = []
+    for table in _iter_all_tables(doc):
+        for row in table.rows:
+            row_text = "".join(cell.text for cell in row.cells)
+            if "[SI/NO]" not in row_text:
+                continue
+            if not row.cells:
+                continue
+            label = row.cells[0].text.strip()
+            if label and label not in results:
+                results.append(label)
+    return results
+
+
+def _fill_si_no_fields(doc: DocxDocument, si_no_values: dict[str, str]) -> None:
+    """
+    For each table row containing [SI/NO], look up the row's label (first-cell text)
+    in si_no_values and replace [SI/NO] with the corresponding value ("Sí" or "No").
+    Processes all tables including nested ones.
+    """
+    for table in _iter_all_tables(doc):
+        for row in table.rows:
+            row_text = "".join(cell.text for cell in row.cells)
+            if "[SI/NO]" not in row_text:
+                continue
+            label = row.cells[0].text.strip() if row.cells else ""
+            value = si_no_values.get(label, "")
+            if value:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        _replace_in_paragraph_elem(para._p, {"[SI/NO]": value})
 
 
 # ---------------------------------------------------------------------------
@@ -709,19 +792,24 @@ async def generate_full_contract_pdf(
     replacements = _build_full_replacements(entity_type, body.partner_info, contract_fields)
     _replace_placeholders_in_docx(doc, replacements)
 
-    # ── 3. Handle commission table rows ──────────────────────────────────────
+    # ── 3. Handle SI/NO fields (Annex I) ─────────────────────────────────────
+    si_no_fields = body.contract_data.get("si_no_fields", {})
+    if si_no_fields:
+        _fill_si_no_fields(doc, si_no_fields)
+
+    # ── 4. Handle commission table rows ──────────────────────────────────────
     if commission_rows:
         _fill_commission_rows(doc, commission_rows)
 
-    # ── 4. Save patched DOCX to an in-memory buffer ───────────────────────────
+    # ── 5. Save patched DOCX to an in-memory buffer ───────────────────────────
     docx_buffer = io.BytesIO()
     doc.save(docx_buffer)
     docx_bytes = docx_buffer.getvalue()
 
-    # ── 5. Convert patched DOCX → PDF via LibreOffice ────────────────────────
+    # ── 6. Convert patched DOCX → PDF via LibreOffice ────────────────────────
     pdf_bytes = await _convert_docx_to_pdf_via_libreoffice(docx_bytes)
 
-    # ── 6. Stream back ────────────────────────────────────────────────────────
+    # ── 7. Stream back ────────────────────────────────────────────────────────
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -729,6 +817,93 @@ async def generate_full_contract_pdf(
             "Content-Disposition": 'inline; filename="contrato_completo.pdf"',
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/contract-templates/{provider_type}/{entity_type}/placeholder-context  (JWT)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/contract-templates/{provider_type}/{entity_type}/placeholder-context")
+async def get_placeholder_context(
+    provider_type: str,
+    entity_type: str,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    current_analyst: Analyst = Depends(get_current_analyst),
+):
+    """
+    Return the full paragraph text surrounding key placeholders ([ACTIVIDAD]).
+    Used by the analyst UI to show context hints next to input fields.
+    Returns an empty dict if no template has been uploaded.
+    """
+    if provider_type not in VALID_PROVIDER_TYPES:
+        raise HTTPException(status_code=422, detail="Invalid provider_type")
+    if entity_type not in VALID_ENTITY_TYPES:
+        raise HTTPException(status_code=422, detail="entity_type must be 'PF' or 'PJ'")
+
+    result = await db.execute(
+        select(ContractTemplate).where(
+            ContractTemplate.provider_type == provider_type,
+            ContractTemplate.entity_type == entity_type,
+        )
+    )
+    template = result.scalar_one_or_none()
+    if template is None or not os.path.exists(template.file_path):
+        return {"context": {}}
+
+    try:
+        doc = DocxDocument(template.file_path)
+        context: dict[str, str] = {}
+        actividad_ctx = _extract_placeholder_context(doc, "[ACTIVIDAD]")
+        if actividad_ctx:
+            context["ACTIVIDAD"] = actividad_ctx
+        return {"context": context}
+    except Exception as exc:
+        logger.error("Error extracting placeholder context: %s", exc)
+        return {"context": {}}
+
+
+# ---------------------------------------------------------------------------
+# GET /api/contract-templates/{provider_type}/{entity_type}/si-no-fields  (JWT)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/contract-templates/{provider_type}/{entity_type}/si-no-fields")
+async def get_si_no_fields(
+    provider_type: str,
+    entity_type: str,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    current_analyst: Analyst = Depends(get_current_analyst),
+):
+    """
+    Return the list of insurance product labels that have a [SI/NO] placeholder
+    in the contract template's Annex I table.
+    Returns an empty list if no template has been uploaded.
+    """
+    if provider_type not in VALID_PROVIDER_TYPES:
+        raise HTTPException(status_code=422, detail="Invalid provider_type")
+    if entity_type not in VALID_ENTITY_TYPES:
+        raise HTTPException(status_code=422, detail="entity_type must be 'PF' or 'PJ'")
+
+    result = await db.execute(
+        select(ContractTemplate).where(
+            ContractTemplate.provider_type == provider_type,
+            ContractTemplate.entity_type == entity_type,
+        )
+    )
+    template = result.scalar_one_or_none()
+    if template is None or not os.path.exists(template.file_path):
+        return {"fields": []}
+
+    try:
+        doc = DocxDocument(template.file_path)
+        fields = _extract_si_no_fields(doc)
+        return {"fields": fields}
+    except Exception as exc:
+        logger.error("Error extracting SI/NO fields: %s", exc)
+        return {"fields": []}
 
 
 # ---------------------------------------------------------------------------

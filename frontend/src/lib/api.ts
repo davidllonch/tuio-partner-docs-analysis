@@ -324,3 +324,27 @@ export async function updateContractData(
     }
   )
 }
+
+export async function fetchContractPlaceholderContext(
+  providerType: string,
+  entityType: string
+): Promise<{ context: Record<string, string> }> {
+  const token = getToken()
+  const response = await apiClient.get(
+    `/api/contract-templates/${providerType}/${entityType}/placeholder-context`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+  )
+  return response.data
+}
+
+export async function fetchSiNoFields(
+  providerType: string,
+  entityType: string
+): Promise<{ fields: string[] }> {
+  const token = getToken()
+  const response = await apiClient.get(
+    `/api/contract-templates/${providerType}/${entityType}/si-no-fields`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+  )
+  return response.data
+}
