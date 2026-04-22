@@ -69,6 +69,7 @@ PARTNER_PF_MAP = {
     "[CONTACTO]": "contacto_notificaciones",
     "[CLAVE DGS]": "clave_dgs",  # correduria only but safe to include for all
     "[CORREDURÍA]": "nombre_apellidos",  # PF contracts: company name = individual's name
+    "[SOCIEDAD PARTNER]": "nombre_apellidos",  # PF: individual's name as "sociedad"
 }
 
 # Placeholders filled from partner_info for Persona Jurídica submissions
@@ -85,6 +86,7 @@ PARTNER_PJ_MAP = {
     "[EMAIL]": "email",
     "[CONTACTO]": "contacto_notificaciones",
     "[CLAVE DGS]": "clave_dgs",  # correduria only but safe to include for all
+    "[SOCIEDAD PARTNER]": "razon_social",  # PJ: company's razón social
 }
 
 # Placeholders filled by the analyst (only used in generate-full)
@@ -258,6 +260,22 @@ def _iter_all_tables_inline(doc_or_cells):
                 queue.extend(cell.tables)
 
 
+def _remove_cell_shading(cell) -> None:
+    """
+    Remove the background shading (<w:shd>) from a table cell's properties.
+    DOCX templates often highlight placeholder cells in yellow or another colour
+    to make them easy to spot. Once the placeholder is replaced with real data,
+    this highlight should be cleared so the final PDF looks clean.
+    """
+    tc = cell._tc
+    tc_pr = tc.find(_W_NS + "tcPr")
+    if tc_pr is None:
+        return
+    shd = tc_pr.find(_W_NS + "shd")
+    if shd is not None:
+        tc_pr.remove(shd)
+
+
 def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str]) -> None:
     """
     Replace placeholder strings (e.g. '[CAMPO]') everywhere in a python-docx Document.
@@ -266,6 +284,10 @@ def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str
       - All body paragraphs (top-level text)
       - All table cells, including tables nested inside table cells
         (python-docx's doc.tables only returns top-level tables; we need BFS)
+
+    Also removes background cell shading from any cell that previously held a
+    placeholder — DOCX templates colour these cells for visibility, but the
+    final PDF should have no highlight.
     """
     # Body paragraphs
     for para in doc.paragraphs:
@@ -275,8 +297,13 @@ def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str
     for table in _iter_all_tables_inline(doc):
         for row in table.rows:
             for cell in row.cells:
+                # Check BEFORE replacement whether this cell contained a placeholder
+                had_placeholder = any(ph in cell.text for ph in replacements)
                 for para in cell.paragraphs:
                     _replace_in_paragraph_elem(para._p, replacements)
+                # If it held a placeholder, strip the highlight colour
+                if had_placeholder:
+                    _remove_cell_shading(cell)
 
 
 async def _convert_docx_to_pdf_via_libreoffice(docx_bytes: bytes) -> bytes:
@@ -385,13 +412,13 @@ def _replace_commission_placeholders_in_row(row, commission: dict) -> None:
     replacements = {
         "[PRODUCTO DE SEGURO]": commission.get("producto", ""),
         "[PRIMA NETA TRAMO 1]": commission.get("prima", ""),
-        "[PRIMA NETA TRAMO 2]": commission.get("prima_tramo2", ""),
         "[COMISIÓN NP]": commission.get("comision_np", ""),
         "[COMISIÓN CARTERA]": commission.get("comision_cartera", ""),
     }
     for cell in row.cells:
         for para in cell.paragraphs:
             _replace_in_paragraph_elem(para._p, replacements)
+        _remove_cell_shading(cell)
 
 
 def _replace_commission_in_tr(tr_elem, commission: dict) -> None:
@@ -399,7 +426,6 @@ def _replace_commission_in_tr(tr_elem, commission: dict) -> None:
     replacements = {
         "[PRODUCTO DE SEGURO]": commission.get("producto", ""),
         "[PRIMA NETA TRAMO 1]": commission.get("prima", ""),
-        "[PRIMA NETA TRAMO 2]": commission.get("prima_tramo2", ""),
         "[COMISIÓN NP]": commission.get("comision_np", ""),
         "[COMISIÓN CARTERA]": commission.get("comision_cartera", ""),
     }
@@ -407,6 +433,13 @@ def _replace_commission_in_tr(tr_elem, commission: dict) -> None:
     # so split-run placeholders are also handled correctly.
     for p_elem in tr_elem.findall(".//" + _W_NS + "p"):
         _replace_in_paragraph_elem(p_elem, replacements)
+    # Remove background highlight from all cells in this row
+    for tc in tr_elem.findall(".//" + _W_NS + "tc"):
+        tc_pr = tc.find(_W_NS + "tcPr")
+        if tc_pr is not None:
+            shd = tc_pr.find(_W_NS + "shd")
+            if shd is not None:
+                tc_pr.remove(shd)
 
 
 def _iter_all_tables(doc: DocxDocument):
@@ -426,17 +459,16 @@ def _iter_all_tables(doc: DocxDocument):
 
 def _fill_commission_rows(doc: DocxDocument, commission_rows: list[dict]) -> None:
     """
-    Find the commission template rows and fill them with commission data.
+    Find the Tramo 1 commission template row, fill it with commission data, and
+    delete any adjacent Tramo 2 template row (the DOCX has two template rows per
+    product, but we only use Tramo 1 — Tramo 2 is always removed).
 
-    The DOCX template has TWO consecutive rows with [PRODUCTO DE SEGURO]:
-      - Row A: contains [PRIMA NETA TRAMO 1]
-      - Row B: contains [PRIMA NETA TRAMO 2]
-
-    For each commission entry the analyst provides:
-      - Both rows A and B are duplicated as a pair.
-      - Each pair is filled with the commission data.
-
-    If commission_rows is empty, both template rows are removed.
+    For N commission entries:
+      - The first entry fills the original template row in-place.
+      - Entries 2..N get a deep-copied duplicate inserted below.
+      - The Tramo 2 row (if present immediately after the Tramo 1 row) is always
+        deleted regardless of how many commissions are provided.
+      - If commission_rows is empty, the Tramo 1 template row is also deleted.
 
     Uses _iter_all_tables to also search inside nested tables.
     """
@@ -446,42 +478,46 @@ def _fill_commission_rows(doc: DocxDocument, commission_rows: list[dict]) -> Non
             if "[PRODUCTO DE SEGURO]" not in row_text:
                 continue
 
-            # Found the first template row. Check if the immediately following row
-            # is also a commission template row (the TRAMO 2 row).
-            template_trs = [row._tr]
+            template_tr = row._tr
+            parent = template_tr.getparent()
+
+            # Detect and remove the Tramo 2 row (immediately following, if present)
+            tramo2_tr = None
             if i + 1 < len(table.rows):
                 next_row = table.rows[i + 1]
                 next_text = "".join(cell.text for cell in next_row.cells)
-                if "[PRODUCTO DE SEGURO]" in next_text or "[PRIMA NETA TRAMO 2]" in next_text:
-                    template_trs.append(next_row._tr)
-
-            parent = template_trs[0].getparent()
-            insert_after = template_trs[-1]  # insert new pairs after the last template row
+                if "[PRIMA NETA TRAMO 2]" in next_text or (
+                    "[PRODUCTO DE SEGURO]" in next_text and next_row is not row
+                ):
+                    tramo2_tr = next_row._tr
 
             if not commission_rows:
-                # No data — remove all template rows
-                for tr in template_trs:
-                    parent.remove(tr)
+                # No data — remove template row (and Tramo 2 if present)
+                parent.remove(template_tr)
+                if tramo2_tr is not None:
+                    parent.remove(tramo2_tr)
                 return
 
-            # ① Make deep copies of ALL template rows BEFORE modifying them.
-            #    Each commission (after the first) gets its own copy of the pair.
-            additional: list[tuple[list, dict]] = []
+            # ① Deep copy the Tramo 1 template row BEFORE modifying it.
+            #    One copy per additional commission (commissions[1:]).
+            insert_after = template_tr
+            additional = []
             for commission in commission_rows[1:]:
-                tr_copies = [copy.deepcopy(tr) for tr in template_trs]
-                additional.append((tr_copies, commission))
+                additional.append((copy.deepcopy(template_tr), commission))
 
-            # ② Fill the original template rows with the first commission.
-            for tr in template_trs:
-                _replace_commission_in_tr(tr, commission_rows[0])
+            # ② Fill the original Tramo 1 template row with the first commission.
+            _replace_commission_in_tr(template_tr, commission_rows[0])
 
-            # ③ Insert and fill the copies for remaining commissions.
-            for tr_copies, commission in additional:
-                for new_tr in tr_copies:
-                    insert_idx = list(parent).index(insert_after) + 1
-                    parent.insert(insert_idx, new_tr)
-                    insert_after = new_tr
-                    _replace_commission_in_tr(new_tr, commission)
+            # ③ Insert and fill copies for remaining commissions.
+            for new_tr, commission in additional:
+                insert_idx = list(parent).index(insert_after) + 1
+                parent.insert(insert_idx, new_tr)
+                insert_after = new_tr
+                _replace_commission_in_tr(new_tr, commission)
+
+            # ④ Remove the Tramo 2 row (always, regardless of commissions).
+            if tramo2_tr is not None:
+                parent.remove(tramo2_tr)
 
             return  # Only process the first matching commission table
 
@@ -506,15 +542,19 @@ def _extract_placeholder_context(doc: DocxDocument, placeholder: str) -> str | N
 
 def _extract_si_no_fields(doc: DocxDocument) -> list[str]:
     """
-    Return the label (first-cell text) of every table row that contains [SI/NO].
+    Return the label (first-cell text) of every table row that contains a SI/NO
+    placeholder. Accepts the variants "[SI/NO]" and "[SI / NO]" (with spaces).
     Used to discover which insurance products in Annex I need a Sí/No selection.
     Searches all tables including nested ones.
     """
+    # Support both "[SI/NO]" and "[SI / NO]" (spaces around the slash)
+    _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]"]
+
     results: list[str] = []
     for table in _iter_all_tables(doc):
         for row in table.rows:
             row_text = "".join(cell.text for cell in row.cells)
-            if "[SI/NO]" not in row_text:
+            if not any(v in row_text for v in _SI_NO_VARIANTS):
                 continue
             if not row.cells:
                 continue
@@ -526,21 +566,25 @@ def _extract_si_no_fields(doc: DocxDocument) -> list[str]:
 
 def _fill_si_no_fields(doc: DocxDocument, si_no_values: dict[str, str]) -> None:
     """
-    For each table row containing [SI/NO], look up the row's label (first-cell text)
-    in si_no_values and replace [SI/NO] with the corresponding value ("Sí" or "No").
+    For each table row containing a SI/NO placeholder, look up the row's label
+    (first-cell text) in si_no_values and replace the placeholder with "Sí" or "No".
+    Accepts the variants "[SI/NO]" and "[SI / NO]" (with spaces).
     Processes all tables including nested ones.
     """
+    _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]"]
+
     for table in _iter_all_tables(doc):
         for row in table.rows:
             row_text = "".join(cell.text for cell in row.cells)
-            if "[SI/NO]" not in row_text:
+            if not any(v in row_text for v in _SI_NO_VARIANTS):
                 continue
             label = row.cells[0].text.strip() if row.cells else ""
             value = si_no_values.get(label, "")
             if value:
+                replacements = {v: value for v in _SI_NO_VARIANTS}
                 for cell in row.cells:
                     for para in cell.paragraphs:
-                        _replace_in_paragraph_elem(para._p, {"[SI/NO]": value})
+                        _replace_in_paragraph_elem(para._p, replacements)
 
 
 # ---------------------------------------------------------------------------
