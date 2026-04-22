@@ -62,6 +62,7 @@ DOCX_MIME_TYPE = (
 PARTNER_PF_MAP = {
     "[REPRESENTANTE]": "nombre_apellidos",
     "[NOMBRE Y APELLIDOS DEL PARTNER]": "nombre_apellidos",
+    "[PARTNER]": "nombre_apellidos",  # generador_leads PF variant
     "[NIF]": "nif",
     "[DOMICILIO]": "domicilio",
     "[DIRECCIÓN]": "direccion_notificaciones",
@@ -592,12 +593,12 @@ def _extract_placeholder_context(doc: DocxDocument, placeholder: str) -> str | N
 def _extract_si_no_fields(doc: DocxDocument) -> list[str]:
     """
     Return the label (first-cell text) of every table row that contains a SI/NO
-    placeholder. Accepts the variants "[SI/NO]" and "[SI / NO]" (with spaces).
+    placeholder. Accepts all variants: "[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]".
     Used to discover which insurance products in Annex I need a Sí/No selection.
     Searches all tables including nested ones.
     """
-    # Support both "[SI/NO]" and "[SI / NO]" (spaces around the slash)
-    _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]"]
+    # Support all common variants of the SI/NO placeholder
+    _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]"]
 
     results: list[str] = []
     for table in _iter_all_tables(doc):
@@ -617,10 +618,10 @@ def _fill_si_no_fields(doc: DocxDocument, si_no_values: dict[str, str]) -> None:
     """
     For each table row containing a SI/NO placeholder, look up the row's label
     (first-cell text) in si_no_values and replace the placeholder with "Sí" or "No".
-    Accepts the variants "[SI/NO]" and "[SI / NO]" (with spaces).
+    Accepts all variants: "[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]".
     Processes all tables including nested ones.
     """
-    _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]"]
+    _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]"]
 
     for table in _iter_all_tables(doc):
         for row in table.rows:
@@ -1228,7 +1229,7 @@ async def debug_template(
         return {"error": f"Could not open DOCX: {exc}"}
 
     # All expected placeholders (so we can report which ones are found)
-    all_expected = list(PARTNER_PF_MAP.keys()) + list(PARTNER_PJ_MAP.keys()) + list(ANALYST_MAP.keys()) + COMMISSION_PLACEHOLDERS + ["[SI/NO]", "[DÍA]", "[MES]", "[AÑO]"]
+    all_expected = list(PARTNER_PF_MAP.keys()) + list(PARTNER_PJ_MAP.keys()) + list(ANALYST_MAP.keys()) + COMMISSION_PLACEHOLDERS + ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]", "[DÍA]", "[MES]", "[AÑO]"]
 
     def _para_debug(para, location: str) -> dict | None:
         runs = [r.text for r in para.runs]
@@ -1313,7 +1314,7 @@ async def diag_all_templates(
         + list(PARTNER_PJ_MAP.keys())
         + list(ANALYST_MAP.keys())
         + COMMISSION_PLACEHOLDERS
-        + ["[SI/NO]", "[DÍA]", "[MES]", "[AÑO]"]
+        + ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]", "[DÍA]", "[MES]", "[AÑO]"]
     )
     # Deduplicate
     all_expected = list(dict.fromkeys(all_expected))
