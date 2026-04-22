@@ -70,6 +70,7 @@ PARTNER_PF_MAP = {
     "[CONTACTO]": "contacto_notificaciones",
     "[CLAVE DGS]": "clave_dgs",  # correduria only but safe to include for all
     "[CORREDURÍA]": "nombre_apellidos",  # PF contracts: company name = individual's name
+    "[CORREDURIA]": "nombre_apellidos",  # non-accented fallback for older template uploads
     "[SOCIEDAD PARTNER]": "nombre_apellidos",  # PF: individual's name as "sociedad"
 }
 
@@ -80,6 +81,7 @@ PARTNER_PJ_MAP = {
     "[CIF]": "cif",
     "[SOCIEDAD]": "razon_social",
     "[CORREDURÍA]": "razon_social",  # PJ contracts: company name = razón social
+    "[CORREDURIA]": "razon_social",  # non-accented fallback for older template uploads
     "[DOMICILIO]": "domicilio_social",
     "[DOMICILIO SOCIAL]": "domicilio_social",
     "[PODER]": "poder",
@@ -857,8 +859,8 @@ async def generate_contract_pdf(
     replacements = _build_partner_replacements(entity_type, body.partner_info)
     _replace_placeholders_in_docx(doc, replacements)
     # Commission placeholders and [ACTIVIDAD] are deliberately left as-is.
-    # Strip all template highlight colours (cell/run/paragraph shading).
-    _strip_all_highlights(doc)
+    # Note: highlight colours are intentionally PRESERVED here so the partner
+    # can see which placeholders still need to be filled.
 
     # ── 2. Save patched DOCX to an in-memory buffer ───────────────────────────
     docx_buffer = io.BytesIO()
