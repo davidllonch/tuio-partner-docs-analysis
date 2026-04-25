@@ -476,22 +476,19 @@ def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str
     """
     Replace placeholder strings (e.g. '[CAMPO]') everywhere in a python-docx Document.
 
-    Covers:
-      - All body paragraphs (top-level text)
-      - All table cells, including nested tables (BFS traversal)
+    Uses lxml .iter() to traverse ALL <w:p> elements regardless of nesting level.
+    This correctly handles placeholders inside:
+      - Body paragraphs
+      - Table cells (including nested tables)
+      - Structured Document Tags (<w:sdt>) — Word content controls / locked regions.
+        python-docx's doc.paragraphs and doc.tables skip SDT content, so lxml
+        traversal is the only way to reach placeholders like [CORREDURÍA] that
+        Word places inside SDTs in signature areas.
       - Document headers and footers for every section
     """
-    def _process_paragraphs_and_tables(paragraphs, tables) -> None:
-        for para in paragraphs:
-            _replace_in_paragraph_elem(para._p, replacements)
-        for table in _iter_all_tables_inline_from_tables(tables):
-            for row in table.rows:
-                for cell in row.cells:
-                    for para in cell.paragraphs:
-                        _replace_in_paragraph_elem(para._p, replacements)
-
-    # Main body
-    _process_paragraphs_and_tables(doc.paragraphs, doc.tables)
+    # Main body — iterate every <w:p> element, including those inside SDTs and nested tables
+    for p_elem in doc.element.body.iter(_W_NS + "p"):
+        _replace_in_paragraph_elem(p_elem, replacements)
 
     # Headers and footers
     for section in doc.sections:
@@ -504,8 +501,9 @@ def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str
             section.even_page_footer,
         ):
             try:
-                if hdr_ftr is not None:
-                    _process_paragraphs_and_tables(hdr_ftr.paragraphs, hdr_ftr.tables)
+                if hdr_ftr is not None and hdr_ftr._element is not None:
+                    for p_elem in hdr_ftr._element.iter(_W_NS + "p"):
+                        _replace_in_paragraph_elem(p_elem, replacements)
             except Exception:
                 pass
 
