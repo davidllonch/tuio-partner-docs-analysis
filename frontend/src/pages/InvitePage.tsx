@@ -49,6 +49,10 @@ export function InvitePage() {
         formData.append('not_applicable_slots', JSON.stringify(payload.notApplicableSlots))
       }
 
+      if (payload.apoderamiento_same_as_constitucion) {
+        formData.append('apoderamiento_same_as_constitucion', 'true')
+      }
+
       if (partnerInfo) {
         formData.append('partner_info', JSON.stringify(partnerInfo))
       }

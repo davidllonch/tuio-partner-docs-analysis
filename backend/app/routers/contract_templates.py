@@ -443,15 +443,17 @@ def _strip_highlights_from_filled_elements(doc: DocxDocument) -> None:
                     if shd is not None:
                         p_pr.remove(shd)
 
-        # Strip run-level shading/highlight for runs with no remaining placeholders
-        for r in root_elem.iter(_W_NS + "r"):
-            if not _elem_has_placeholder(r):
+        # Strip run-level shading/highlight for runs in paragraphs with no remaining placeholders
+        for p in root_elem.iter(_W_NS + "p"):
+            if _elem_has_placeholder(p):
+                continue  # paragraph still has unfilled placeholder(s) — keep all run colours
+            for r in p.iter(_W_NS + "r"):
                 r_pr = r.find(_W_NS + "rPr")
                 if r_pr is not None:
                     for tag in (_W_NS + "shd", _W_NS + "highlight"):
-                        elem = r_pr.find(tag)
-                        if elem is not None:
-                            r_pr.remove(elem)
+                        e = r_pr.find(tag)
+                        if e is not None:
+                            r_pr.remove(e)
 
     _process(doc.element.body)
     for section in doc.sections:
@@ -744,15 +746,29 @@ def _extract_placeholder_context(doc: DocxDocument, placeholder: str) -> str | N
 
 def _extract_si_no_fields(doc: DocxDocument) -> list[str]:
     """
-    Return the label (first-cell text) of every table row that contains a SI/NO
-    placeholder. Accepts all variants: "[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]".
+    Return the label of every element (body paragraph or table row) that contains
+    a SI/NO placeholder.
+    Accepts all variants: "[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]".
     Used to discover which insurance products in Annex I need a Sí/No selection.
-    Searches all tables including nested ones.
     """
-    # All variants including accented Í — fuzzy_search handles U+FFFD encoding corruption
     _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]"]
-
     results: list[str] = []
+
+    # Search body paragraphs first
+    for para in doc.paragraphs:
+        para_text = para.text
+        if not any(_fuzzy_search(v, para_text) for v in _SI_NO_VARIANTS):
+            continue
+        # Label = text before the first "[", stripped of trailing colon/whitespace
+        bracket_pos = para_text.find("[")
+        if bracket_pos > 0:
+            label = para_text[:bracket_pos].strip().rstrip(":").strip()
+        else:
+            label = para_text.strip()
+        if label and label not in results:
+            results.append(label)
+
+    # Search tables (including nested)
     for table in _iter_all_tables(doc):
         for row in table.rows:
             row_text = "".join(cell.text for cell in row.cells)
@@ -763,22 +779,39 @@ def _extract_si_no_fields(doc: DocxDocument) -> list[str]:
             label = row.cells[0].text.strip()
             if label and label not in results:
                 results.append(label)
+
     return results
 
 
 def _fill_si_no_fields(doc: DocxDocument, si_no_values: dict[str, str]) -> None:
     """
-    For each table row containing a SI/NO placeholder, look up the row's label
-    (first-cell text) in si_no_values and replace the placeholder with "Sí" or "No".
+    For each body paragraph or table row containing a SI/NO placeholder,
+    look up the element's label in si_no_values and replace the placeholder
+    with "Sí" or "No".
     Accepts all variants: "[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]".
     Processes all tables including nested ones.
     """
     _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]"]
 
+    # Fill in body paragraphs
+    for para in doc.paragraphs:
+        para_text = para.text
+        if not any(_fuzzy_search(v, para_text) for v in _SI_NO_VARIANTS):
+            continue
+        bracket_pos = para_text.find("[")
+        if bracket_pos > 0:
+            label = para_text[:bracket_pos].strip().rstrip(":").strip()
+        else:
+            label = para_text.strip()
+        value = si_no_values.get(label, "")
+        if value:
+            replacements = {v: value for v in _SI_NO_VARIANTS}
+            _replace_in_paragraph_elem(para._p, replacements)
+
+    # Fill in table cells
     for table in _iter_all_tables(doc):
         for row in table.rows:
             row_text = "".join(cell.text for cell in row.cells)
-            # fuzzy_search handles U+FFFD encoding corruption for Í
             if not any(_fuzzy_search(v, row_text) for v in _SI_NO_VARIANTS):
                 continue
             label = row.cells[0].text.strip() if row.cells else ""

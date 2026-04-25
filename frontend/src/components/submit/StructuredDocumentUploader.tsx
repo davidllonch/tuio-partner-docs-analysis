@@ -10,11 +10,13 @@ import type { PartnerInfo } from '../../lib/types'
 export interface StructuredSubmitPayload {
   files: Array<{ file: File; slotId: string; label: string }>
   notApplicableSlots: string[]
+  apoderamiento_same_as_constitucion: boolean
 }
 
 interface SlotState {
   file: File | null
   notApplicable: boolean
+  sameAsConstitution: boolean
   error: string | null
 }
 
@@ -175,6 +177,7 @@ interface SingleSlotProps {
   showValidation: boolean
   onFileChange: (slotId: string, file: File | null) => void
   onNotApplicableChange: (slotId: string, value: boolean) => void
+  onSameAsConstitutionChange: (slotId: string, value: boolean) => void
 }
 
 function SingleSlot({
@@ -183,12 +186,13 @@ function SingleSlot({
   showValidation,
   onFileChange,
   onNotApplicableChange,
+  onSameAsConstitutionChange,
 }: SingleSlotProps) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const isRequired = !slot.isConditional
-  const isMissing = showValidation && !state.file && !state.notApplicable
+  const isMissing = showValidation && !state.file && !state.notApplicable && !state.sameAsConstitution
 
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
@@ -215,7 +219,7 @@ function SingleSlot({
 
   const borderColor = isMissing
     ? 'border-red-300'
-    : state.notApplicable
+    : state.notApplicable || state.sameAsConstitution
     ? 'border-gray-200 bg-gray-50'
     : state.file
     ? 'border-green-200 bg-green-50'
@@ -249,6 +253,19 @@ function SingleSlot({
           <button
             type="button"
             onClick={() => onNotApplicableChange(slot.id, false)}
+            className="text-xs text-primary-600 hover:text-primary-800 underline"
+          >
+            {t('structuredUpload.undoNotApplicable')}
+          </button>
+        </div>
+      ) : state.sameAsConstitution ? (
+        /* Same-as-constitución declared */
+        <div className="flex items-center gap-2">
+          <CheckSquare className="h-3.5 w-3.5 text-blue-400" />
+          <span className="text-xs text-blue-700 italic">{t('structuredUpload.sameAsConstitutionDeclared')}</span>
+          <button
+            type="button"
+            onClick={() => onSameAsConstitutionChange(slot.id, false)}
             className="text-xs text-primary-600 hover:text-primary-800 underline"
           >
             {t('structuredUpload.undoNotApplicable')}
@@ -302,6 +319,17 @@ function SingleSlot({
               {t('structuredUpload.notApplicable')}
             </button>
           )}
+          {/* Same-as-constitución toggle */}
+          {slot.sameAsConstitutionOption && (
+            <button
+              type="button"
+              onClick={() => onSameAsConstitutionChange(slot.id, true)}
+              className="mt-2 flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              <Square className="h-3.5 w-3.5" />
+              {t('structuredUpload.sameAsConstitution')}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -335,7 +363,7 @@ export function StructuredDocumentUploader({
   const initialState = (): Record<string, SlotState> => {
     const map: Record<string, SlotState> = {}
     slots.forEach((s) => {
-      map[s.id] = { file: null, notApplicable: false, error: null }
+      map[s.id] = { file: null, notApplicable: false, sameAsConstitution: false, error: null }
     })
     return map
   }
@@ -363,12 +391,20 @@ export function StructuredDocumentUploader({
     }))
   }
 
+  const handleSameAsConstitutionChange = (slotId: string, value: boolean) => {
+    setSlotStates((prev) => ({
+      ...prev,
+      [slotId]: { ...prev[slotId], sameAsConstitution: value, file: null, error: null },
+    }))
+  }
+
   const canSubmit = () => {
     return slots.every((slot) => {
       const state = slotStates[slot.id]
       if (!state) return false
       if (state.file) return true
       if (slot.isConditional && state.notApplicable) return true
+      if (slot.sameAsConstitutionOption && state.sameAsConstitution) return true
       if (!slot.isConditional && !state.file) return false
       return false
     })
@@ -382,6 +418,7 @@ export function StructuredDocumentUploader({
 
     const files: StructuredSubmitPayload['files'] = []
     const notApplicableSlots: string[] = []
+    let apoderamientoSameAsConstitucion = false
 
     slots.forEach((slot) => {
       const state = slotStates[slot.id]
@@ -389,10 +426,12 @@ export function StructuredDocumentUploader({
         files.push({ file: state.file, slotId: slot.id, label: slot.label })
       } else if (state.notApplicable) {
         notApplicableSlots.push(slot.id)
+      } else if (slot.sameAsConstitutionOption && state.sameAsConstitution) {
+        apoderamientoSameAsConstitucion = true
       }
     })
 
-    onSubmit({ files, notApplicableSlots })
+    onSubmit({ files, notApplicableSlots, apoderamiento_same_as_constitucion: apoderamientoSameAsConstitucion })
   }
 
   // Show the declaration banner only when at least one slot requires it
@@ -419,10 +458,11 @@ export function StructuredDocumentUploader({
         <SingleSlot
           key={slot.id}
           slot={slot}
-          state={slotStates[slot.id] ?? { file: null, notApplicable: false, error: null }}
+          state={slotStates[slot.id] ?? { file: null, notApplicable: false, sameAsConstitution: false, error: null }}
           showValidation={showValidation}
           onFileChange={handleFileChange}
           onNotApplicableChange={handleNotApplicableChange}
+          onSameAsConstitutionChange={handleSameAsConstitutionChange}
         />
       ))}
 

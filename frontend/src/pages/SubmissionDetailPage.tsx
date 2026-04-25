@@ -43,7 +43,7 @@ function formatDate(iso: string): string {
 
 export function SubmissionDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { data: submission, isLoading, isError } = useSubmission(id!)
+  const { data: submission, isLoading, isError, refetch: refetchSubmission } = useSubmission(id!)
   const { t } = useTranslation()
   const { toast } = useToast()
 
@@ -468,6 +468,7 @@ export function SubmissionDetailPage() {
               <DocumentDownloadList
                 submissionId={submission.id}
                 documents={submission.documents}
+                onRefetch={() => refetchSubmission()}
               />
 
               {/* Re-analyse + history */}

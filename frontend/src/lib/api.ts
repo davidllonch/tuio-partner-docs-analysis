@@ -166,6 +166,29 @@ export async function downloadDocument(
   window.URL.revokeObjectURL(url)
 }
 
+export async function deleteDocument(
+  submissionId: string,
+  documentId: string
+): Promise<void> {
+  await apiClient.delete(`/api/submissions/${submissionId}/documents/${documentId}`)
+}
+
+export async function addDocumentToSubmission(
+  submissionId: string,
+  file: File,
+  label: string
+): Promise<{ document_id: string }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('label', label)
+  const response = await apiClient.post<{ ok: boolean; document_id: string }>(
+    `/api/submissions/${submissionId}/documents`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return response.data
+}
+
 // --- Invitations ---
 
 export async function createInvitation(

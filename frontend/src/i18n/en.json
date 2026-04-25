@@ -64,7 +64,15 @@
     "documents": "Documents",
     "aiReport": "AI Report",
     "reanalyse": "Re-analyse",
-    "downloadPdf": "Download PDF",
+    "downloadPdf": "Download",
+    "addDocument": "Add document",
+    "addDocumentLabel": "Document label",
+    "selectFile": "Select file",
+    "uploadDocument": "Upload",
+    "uploading": "Uploading…",
+    "confirmDelete": "Delete?",
+    "confirmDeleteYes": "Yes",
+    "confirmDeleteNo": "No",
     "generatingPdf": "Generating...",
     "pdfError": "Download failed",
     "pdfErrorDesc": "Could not generate the PDF report. Please try again.",
@@ -269,6 +277,8 @@
     "clickOrDrop": "Click or drag file here",
     "missingRequired": "This document is required",
     "removeFile": "Remove file",
-    "validationError": "Please upload all required documents before submitting."
+    "validationError": "Please upload all required documents before submitting.",
+    "sameAsConstitution": "Same document as the Articles of Incorporation",
+    "sameAsConstitutionDeclared": "Declared: included in the Articles of Incorporation"
   }
 }

@@ -4,12 +4,13 @@ export interface DocumentSlot {
   note?: string           // Explanatory note for conditional slots
   isConditional: boolean  // true → partner can mark "No me aplica"
   hasDeclarationTemplate: boolean  // true → show download button
+  sameAsConstitutionOption?: boolean  // true → show "same as escrituras de constitución" checkbox
 }
 
 // Base document slots for Persona Jurídica (legal entity)
 const PJ_BASE_SLOTS: DocumentSlot[] = [
   { id: 'escrituras_constitucion', label: 'Escrituras de constitución', isConditional: false, hasDeclarationTemplate: false },
-  { id: 'escrituras_apoderamiento', label: 'Escrituras de apoderamiento de representantes legales', isConditional: false, hasDeclarationTemplate: false },
+  { id: 'escrituras_apoderamiento', label: 'Escrituras de apoderamiento de representantes legales', isConditional: false, hasDeclarationTemplate: false, sameAsConstitutionOption: true },
   { id: 'dni_representante', label: 'DNI del representante legal', isConditional: false, hasDeclarationTemplate: false },
   { id: 'cert_cuenta_gastos', label: 'Certificado de titularidad de cuenta bancaria (gastos generales)', isConditional: false, hasDeclarationTemplate: false },
   { id: 'titularidad_real', label: 'Acta de titularidad real (antigüedad menor de 12 meses) o último Modelo 200 presentado', isConditional: false, hasDeclarationTemplate: false },

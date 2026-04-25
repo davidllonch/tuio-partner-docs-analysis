@@ -64,7 +64,15 @@
     "documents": "Documentos",
     "aiReport": "Informe IA",
     "reanalyse": "Reanalizar",
-    "downloadPdf": "Descargar PDF",
+    "downloadPdf": "Descargar",
+    "addDocument": "Añadir documento",
+    "addDocumentLabel": "Etiqueta del documento",
+    "selectFile": "Seleccionar archivo",
+    "uploadDocument": "Subir",
+    "uploading": "Subiendo…",
+    "confirmDelete": "¿Eliminar?",
+    "confirmDeleteYes": "Sí",
+    "confirmDeleteNo": "No",
     "generatingPdf": "Generando...",
     "pdfError": "Error de descarga",
     "pdfErrorDesc": "No se ha podido generar el informe PDF. Inténtalo de nuevo.",
@@ -269,6 +277,8 @@
     "clickOrDrop": "Haz clic o arrastra el archivo aquí",
     "missingRequired": "Este documento es obligatorio",
     "removeFile": "Eliminar archivo",
-    "validationError": "Por favor, sube todos los documentos obligatorios antes de enviar."
+    "validationError": "Por favor, sube todos los documentos obligatorios antes de enviar.",
+    "sameAsConstitution": "Mismo documento que Escrituras de constitución",
+    "sameAsConstitutionDeclared": "Declarado: incluido en las Escrituras de constitución"
   }
 }

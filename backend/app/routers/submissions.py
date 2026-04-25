@@ -262,6 +262,7 @@ async def create_submission(
     not_applicable_slots: Optional[str] = Form(None),
     partner_info: Optional[str] = Form(None),
     contract_data: Optional[str] = Form(None),
+    apoderamiento_same_as_constitucion: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
@@ -426,6 +427,17 @@ async def create_submission(
                 "mime_type": upload_file.content_type,
             }
         )
+
+    # If the partner indicated that the apoderamiento document is the same as
+    # the constitución escrituras, inject a synthetic note into the AI context.
+    if apoderamiento_same_as_constitucion == "true":
+        extraction_inputs.append({
+            "filename": "nota_apoderamiento.txt",
+            "label": "Nota: Escrituras de apoderamiento",
+            "file_path": None,
+            "mime_type": "text/plain",
+            "text": "NOTA DEL PARTNER: El partner ha indicado expresamente que las Escrituras de constitución incluyen el poder más reciente del representante legal. No se ha aportado un documento separado de apoderamiento porque está integrado en la escritura de constitución.",
+        })
 
     # ── 5. Commit to DB and schedule background analysis ─────────────────────
 
@@ -633,6 +645,128 @@ async def download_document(
             "Content-Length": str(document.size_bytes),
         },
     )
+
+
+@router.delete("/submissions/{submission_id}/documents/{doc_id}")
+async def delete_document(
+    submission_id: uuid.UUID,
+    doc_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_analyst: Analyst = Depends(get_current_analyst),
+):
+    """
+    Analyst removes a document from a submission.
+    Deletes both the DB record and the file on disk.
+    """
+    result = await db.execute(
+        select(Document).where(
+            Document.id == doc_id,
+            Document.submission_id == submission_id,
+        )
+    )
+    document = result.scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    # Delete file from disk (ignore if already gone)
+    try:
+        if os.path.exists(document.file_path):
+            os.remove(document.file_path)
+    except OSError as e:
+        logger.warning("Could not delete file %s: %s", document.file_path, e)
+
+    await _log_audit(
+        db=db,
+        action="document_deleted",
+        analyst_id=current_analyst.id,
+        submission_id=submission_id,
+        metadata={
+            "document_id": str(doc_id),
+            "filename": document.original_filename,
+            "analyst_email": current_analyst.email,
+        },
+    )
+
+    await db.delete(document)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/submissions/{submission_id}/documents")
+async def add_document(
+    submission_id: uuid.UUID,
+    file: UploadFile = File(...),
+    label: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_analyst: Analyst = Depends(get_current_analyst),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Analyst adds a new document to an existing submission.
+    """
+    # Validate submission exists
+    result = await db.execute(select(Submission).where(Submission.id == submission_id))
+    submission = result.scalar_one_or_none()
+    if submission is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
+
+    # Validate MIME type
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported file type '{file.content_type}'. Allowed: PDF, JPEG, PNG, DOCX",
+        )
+
+    # Read and validate size
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="File exceeds the 20 MB size limit",
+        )
+    await file.seek(0)
+
+    # Save to disk
+    submission_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, str(submission_id))
+    os.makedirs(submission_dir, exist_ok=True)
+
+    safe_filename = _sanitize_filename(file.filename or "document")
+    file_path = os.path.join(submission_dir, safe_filename)
+    # Avoid name collisions
+    if os.path.exists(file_path):
+        name, ext = os.path.splitext(safe_filename)
+        safe_filename = f"{name}_{uuid.uuid4().hex[:6]}{ext}"
+        file_path = os.path.join(submission_dir, safe_filename)
+
+    size_bytes = await _write_file_to_disk(file, file_path)
+
+    doc = Document(
+        id=uuid.uuid4(),
+        submission_id=submission_id,
+        original_filename=file.filename or safe_filename,
+        user_label=label,
+        file_path=file_path,
+        mime_type=file.content_type,
+        size_bytes=size_bytes,
+        uploaded_at=datetime.now(timezone.utc),
+    )
+    db.add(doc)
+
+    await _log_audit(
+        db=db,
+        action="document_added",
+        analyst_id=current_analyst.id,
+        submission_id=submission_id,
+        metadata={
+            "document_id": str(doc.id),
+            "filename": file.filename,
+            "label": label,
+            "analyst_email": current_analyst.email,
+        },
+    )
+
+    await db.commit()
+    return {"ok": True, "document_id": str(doc.id)}
 
 
 @router.post("/submissions/{submission_id}/reanalyse", response_model=ReanalyseResponse)

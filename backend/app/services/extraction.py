@@ -163,7 +163,7 @@ async def extract_documents(documents: list[dict]) -> list[ExtractedDoc]:
     better analysis quality for identity documents.
 
     Args:
-        documents: List of dicts with keys: filename, label, file_path, mime_type
+        documents: List of dicts with keys: filename, label, file_path, mime_type, and optionally: text
 
     Returns:
         List of ExtractedDoc objects. A scanned PDF may produce multiple ExtractedDoc
@@ -174,10 +174,23 @@ async def extract_documents(documents: list[dict]) -> list[ExtractedDoc]:
     for doc in documents:
         filename = doc["filename"]
         label = doc["label"]
-        file_path = doc["file_path"]
+        file_path = doc.get("file_path")
         mime_type = doc["mime_type"]
+        text_provided = doc.get("text")  # Optional: text-only synthetic entries
 
         try:
+            # If text is provided directly (synthetic note), use it as-is
+            if text_provided:
+                results.append(
+                    ExtractedDoc(
+                        filename=filename,
+                        label=label,
+                        text=text_provided,
+                        image_b64=None,
+                        mime_type=mime_type,
+                    )
+                )
+                continue
             if mime_type == "application/pdf":
                 # First: try text extraction
                 text = _extract_pdf_text(file_path)
