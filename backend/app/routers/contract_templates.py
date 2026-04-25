@@ -744,81 +744,93 @@ def _extract_placeholder_context(doc: DocxDocument, placeholder: str) -> str | N
 
 def _extract_si_no_fields(doc: DocxDocument) -> list[str]:
     """
-    Return the label of every element (body paragraph or table row) that contains
-    a SI/NO placeholder.
-    Accepts all variants: "[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]".
-    Used to discover which insurance products in Annex I need a Sí/No selection.
+    Return the label of every table row (or paragraph) that contains a SI/NO
+    placeholder.  Accepts all variants: "[SI/NO]", "[SI / NO]", "[SÍ/NO]",
+    "[SÍ / NO]".
+
+    Uses lxml .iter() so it reaches paragraphs inside Structured Document Tags
+    (<w:sdt>) and deeply nested tables that python-docx's doc.tables / doc.paragraphs
+    do not expose.  For each matching paragraph:
+      - If it lives inside a <w:tc> we navigate up to the <w:tr> and use the
+        first cell's text as the product label.
+      - Otherwise we use the text before the first "[" in the paragraph.
     """
     _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]"]
     results: list[str] = []
 
-    # Search body paragraphs first
-    for para in doc.paragraphs:
-        para_text = para.text
-        if not any(_fuzzy_search(v, para_text) for v in _SI_NO_VARIANTS):
+    for p_elem in doc.element.body.iter(_W_NS + "p"):
+        full_text = "".join(t.text or "" for t in p_elem.iter(_W_NS + "t"))
+        if not any(_fuzzy_search(v, full_text) for v in _SI_NO_VARIANTS):
             continue
-        # Label = text before the first "[", stripped of trailing colon/whitespace
-        bracket_pos = para_text.find("[")
-        if bracket_pos > 0:
-            label = para_text[:bracket_pos].strip().rstrip(":").strip()
-        else:
-            label = para_text.strip()
+
+        # Try to get the label from the first cell of the enclosing table row
+        label = None
+        ancestor = p_elem.getparent()
+        while ancestor is not None:
+            if ancestor.tag == _W_NS + "tr":
+                first_tc = ancestor.find(_W_NS + "tc")
+                if first_tc is not None:
+                    label = "".join(
+                        t.text or "" for t in first_tc.iter(_W_NS + "t")
+                    ).strip()
+                break
+            ancestor = ancestor.getparent()
+
+        # Fallback: text before the first "[" in the paragraph
+        if not label:
+            bracket_pos = full_text.find("[")
+            if bracket_pos > 0:
+                label = full_text[:bracket_pos].strip().rstrip(":").strip()
+            else:
+                label = full_text.strip()
+
         if label and label not in results:
             results.append(label)
-
-    # Search tables (including nested)
-    for table in _iter_all_tables(doc):
-        for row in table.rows:
-            row_text = "".join(cell.text for cell in row.cells)
-            if not any(_fuzzy_search(v, row_text) for v in _SI_NO_VARIANTS):
-                continue
-            if not row.cells:
-                continue
-            label = row.cells[0].text.strip()
-            if label and label not in results:
-                results.append(label)
 
     return results
 
 
 def _fill_si_no_fields(doc: DocxDocument, si_no_values: dict[str, str]) -> None:
     """
-    For each body paragraph or table row containing a SI/NO placeholder,
-    look up the element's label in si_no_values and replace the placeholder
-    with "Sí" or "No".
-    Accepts all variants: "[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]".
-    Processes all tables including nested ones.
+    For each paragraph containing a SI/NO placeholder, look up the product
+    label (from the first cell of the enclosing table row, or from text before
+    the "[") in si_no_values and replace [SÍ / NO] with "Sí" or "No".
+
+    Uses lxml .iter() so it reaches paragraphs inside <w:sdt> elements and
+    deeply nested tables that python-docx's normal traversal misses.
     """
     _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]"]
+    replacements_base = {v: "" for v in _SI_NO_VARIANTS}  # filled per paragraph
 
-    # Fill in body paragraphs
-    for para in doc.paragraphs:
-        para_text = para.text
-        if not any(_fuzzy_search(v, para_text) for v in _SI_NO_VARIANTS):
+    for p_elem in doc.element.body.iter(_W_NS + "p"):
+        full_text = "".join(t.text or "" for t in p_elem.iter(_W_NS + "t"))
+        if not any(_fuzzy_search(v, full_text) for v in _SI_NO_VARIANTS):
             continue
-        bracket_pos = para_text.find("[")
-        if bracket_pos > 0:
-            label = para_text[:bracket_pos].strip().rstrip(":").strip()
-        else:
-            label = para_text.strip()
-        value = si_no_values.get(label, "")
+
+        # Determine label
+        label = None
+        ancestor = p_elem.getparent()
+        while ancestor is not None:
+            if ancestor.tag == _W_NS + "tr":
+                first_tc = ancestor.find(_W_NS + "tc")
+                if first_tc is not None:
+                    label = "".join(
+                        t.text or "" for t in first_tc.iter(_W_NS + "t")
+                    ).strip()
+                break
+            ancestor = ancestor.getparent()
+
+        if not label:
+            bracket_pos = full_text.find("[")
+            if bracket_pos > 0:
+                label = full_text[:bracket_pos].strip().rstrip(":").strip()
+            else:
+                label = full_text.strip()
+
+        value = si_no_values.get(label or "", "")
         if value:
             replacements = {v: value for v in _SI_NO_VARIANTS}
-            _replace_in_paragraph_elem(para._p, replacements)
-
-    # Fill in table cells
-    for table in _iter_all_tables(doc):
-        for row in table.rows:
-            row_text = "".join(cell.text for cell in row.cells)
-            if not any(_fuzzy_search(v, row_text) for v in _SI_NO_VARIANTS):
-                continue
-            label = row.cells[0].text.strip() if row.cells else ""
-            value = si_no_values.get(label, "")
-            if value:
-                replacements = {v: value for v in _SI_NO_VARIANTS}
-                for cell in row.cells:
-                    for para in cell.paragraphs:
-                        _replace_in_paragraph_elem(para._p, replacements)
+            _replace_in_paragraph_elem(p_elem, replacements)
 
 
 # ---------------------------------------------------------------------------
