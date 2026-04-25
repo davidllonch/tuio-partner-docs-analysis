@@ -182,6 +182,71 @@ def _get_template_dir(documents_base_path: str) -> str:
 # OOXML Word namespace — used to find <w:t> elements via lxml
 _W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
+# ---------------------------------------------------------------------------
+# Encoding-tolerant helpers
+# ---------------------------------------------------------------------------
+# Some DOCX files store accented characters (e.g. Í, Ó, Á) as single Latin-1
+# bytes instead of proper 2-byte UTF-8 sequences. Because the XML header still
+# declares UTF-8, lxml replaces those invalid bytes with U+FFFD (the Unicode
+# replacement character, '?'). This means our placeholder strings (which carry
+# the correct Unicode characters) won't match the lxml-read text.
+#
+# _fuzzy_eq and _fuzzy_pattern handle this by treating U+FFFD as a wildcard
+# that matches any single character, so comparisons and regex substitutions
+# work regardless of the encoding corruption.
+_REPL = "\ufffd"  # U+FFFD — Unicode replacement character
+
+
+def _fuzzy_eq(a: str, b: str) -> bool:
+    """True if strings are equal treating U+FFFD in either string as wildcard."""
+    if len(a) != len(b):
+        return False
+    return all(ca == cb or ca == _REPL or cb == _REPL for ca, cb in zip(a, b))
+
+
+def _fuzzy_sub(pattern_text: str, replacement: str, subject: str) -> str:
+    """
+    Replace the first (or all) occurrences of pattern_text in subject,
+    where non-ASCII chars in pattern_text also match U+FFFD in subject.
+    Falls back to plain str.replace when no non-ASCII chars are present
+    (avoids regex overhead for ASCII-only placeholders like [DIA]).
+    """
+    # Fast path: no non-ASCII characters in the placeholder
+    if all(ord(ch) < 128 for ch in pattern_text):
+        return subject.replace(pattern_text, replacement)
+
+    # Build regex where each non-ASCII char also accepts U+FFFD
+    parts = []
+    for ch in pattern_text:
+        if ch == _REPL:
+            parts.append(".")
+        elif ord(ch) > 127:
+            parts.append(f"(?:{re.escape(ch)}|{re.escape(_REPL)})")
+        else:
+            parts.append(re.escape(ch))
+    pat = re.compile("".join(parts))
+    return pat.sub(replacement, subject)
+
+
+def _fuzzy_search(pattern_text: str, subject: str) -> bool:
+    """Return True if subject contains pattern_text (fuzzy-encoded)."""
+    # Fast path
+    if all(ord(ch) < 128 for ch in pattern_text):
+        return pattern_text in subject
+    # Check both the literal and the \ufffd-substituted variant
+    if pattern_text in subject:
+        return True
+    # Build fuzzy regex
+    parts = []
+    for ch in pattern_text:
+        if ch == _REPL:
+            parts.append(".")
+        elif ord(ch) > 127:
+            parts.append(f"(?:{re.escape(ch)}|{re.escape(_REPL)})")
+        else:
+            parts.append(re.escape(ch))
+    return bool(re.search("".join(parts), subject))
+
 
 def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
     """
@@ -197,6 +262,10 @@ def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
                their original text and formatting unchanged.
       Pass 3 — full-collapse fallback for any remaining cross-run placeholders.
                Loses per-run formatting for the paragraph but always works.
+
+    All passes use fuzzy matching so that U+FFFD (the Unicode replacement character
+    produced by lxml when a DOCX contains invalid UTF-8 bytes for accented chars)
+    is treated as a wildcard matching the expected character.
     """
     w_t_elems = p_elem.findall(".//" + _W_NS + "t")
     if not w_t_elems:
@@ -207,11 +276,11 @@ def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
         if not elem.text:
             continue
         for placeholder, value in replacements.items():
-            if placeholder in elem.text:
-                elem.text = elem.text.replace(placeholder, value)
+            if _fuzzy_search(placeholder, elem.text):
+                elem.text = _fuzzy_sub(placeholder, value, elem.text)
 
     # Pass 2: sliding-window for split-run placeholders
-    # Pattern: w_t[i-1] ends with "[", w_t[i] == "INNER_NAME", w_t[i+1] starts with "]"
+    # Pattern: w_t[i-1] ends with "[", w_t[i] ≈ "INNER_NAME", w_t[i+1] starts with "]"
     for placeholder, value in replacements.items():
         if len(placeholder) < 3 or placeholder[0] != "[" or placeholder[-1] != "]":
             continue
@@ -219,7 +288,7 @@ def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
         i = 1
         while i < len(w_t_elems) - 1:
             curr_text = w_t_elems[i].text or ""
-            if curr_text == inner:
+            if _fuzzy_eq(curr_text, inner):  # fuzzy: Í matches \ufffd
                 prev_text = w_t_elems[i - 1].text or ""
                 next_text = w_t_elems[i + 1].text or ""
                 if prev_text.endswith("[") and next_text.startswith("]"):
@@ -233,13 +302,13 @@ def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
 
     # Pass 3: full-collapse fallback for any remaining cross-run placeholders
     full_text = "".join(elem.text or "" for elem in w_t_elems)
-    remaining = {ph: v for ph, v in replacements.items() if ph in full_text}
+    remaining = {ph: v for ph, v in replacements.items() if _fuzzy_search(ph, full_text)}
     if not remaining:
         return
 
     new_text = full_text
     for placeholder, value in remaining.items():
-        new_text = new_text.replace(placeholder, value)
+        new_text = _fuzzy_sub(placeholder, value, new_text)
     w_t_elems[0].text = new_text
     for elem in w_t_elems[1:]:
         elem.text = ""
@@ -318,6 +387,87 @@ def _strip_all_highlights(doc: DocxDocument) -> None:
                     _strip_tree(hdr_ftr._element)
             except Exception:
                 pass  # Some sections may not have all header/footer variants
+
+
+def _strip_highlights_from_filled_elements(doc: DocxDocument) -> None:
+    """
+    Remove highlight colours ONLY from elements whose text no longer contains
+    an unfilled placeholder marker (i.e. a '[' character).
+
+    Used for the partner PDF download: placeholders that the partner has
+    already filled in via the form are shown without colour (the value is
+    readable as normal text), while placeholders that are still pending
+    (commission rows, [ACTIVIDAD], [SÍ/NO], etc.) keep their yellow/cyan
+    highlight so the partner knows these will be completed later.
+
+    Granularity:
+      - Run level: strip <w:rPr><w:shd> and <w:rPr><w:highlight> from any
+        run whose text contains no '['.
+      - Cell level: strip <w:tcPr><w:shd> from any table cell whose entire
+        subtree contains no '['.
+      - Paragraph level: strip <w:pPr><w:shd> from any paragraph whose text
+        contains no '['.
+    """
+    _STRIP_TAGS = {_W_NS + "shd", _W_NS + "highlight"}
+
+    def _elem_has_placeholder(elem) -> bool:
+        """True if any <w:t> descendant of elem still contains a '[' char."""
+        return any(
+            t.text and "[" in t.text
+            for t in elem.iter(_W_NS + "t")
+        )
+
+    def _strip_from_elem(elem) -> None:
+        to_remove = [e for e in elem.iter() if e.tag in _STRIP_TAGS]
+        for e in to_remove:
+            parent = e.getparent()
+            if parent is not None:
+                parent.remove(e)
+
+    def _process(root_elem) -> None:
+        # Strip cell-level shading for cells with no remaining placeholders
+        for tc in root_elem.iter(_W_NS + "tc"):
+            if not _elem_has_placeholder(tc):
+                tc_pr = tc.find(_W_NS + "tcPr")
+                if tc_pr is not None:
+                    shd = tc_pr.find(_W_NS + "shd")
+                    if shd is not None:
+                        tc_pr.remove(shd)
+
+        # Strip paragraph-level shading for paragraphs with no remaining placeholders
+        for p in root_elem.iter(_W_NS + "p"):
+            if not _elem_has_placeholder(p):
+                p_pr = p.find(_W_NS + "pPr")
+                if p_pr is not None:
+                    shd = p_pr.find(_W_NS + "shd")
+                    if shd is not None:
+                        p_pr.remove(shd)
+
+        # Strip run-level shading/highlight for runs with no remaining placeholders
+        for r in root_elem.iter(_W_NS + "r"):
+            if not _elem_has_placeholder(r):
+                r_pr = r.find(_W_NS + "rPr")
+                if r_pr is not None:
+                    for tag in (_W_NS + "shd", _W_NS + "highlight"):
+                        elem = r_pr.find(tag)
+                        if elem is not None:
+                            r_pr.remove(elem)
+
+    _process(doc.element.body)
+    for section in doc.sections:
+        for hdr_ftr in (
+            section.header,
+            section.footer,
+            section.first_page_header,
+            section.first_page_footer,
+            section.even_page_header,
+            section.even_page_footer,
+        ):
+            try:
+                if hdr_ftr is not None and hdr_ftr._element is not None:
+                    _process(hdr_ftr._element)
+            except Exception:
+                pass
 
 
 def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str]) -> None:
@@ -599,14 +749,14 @@ def _extract_si_no_fields(doc: DocxDocument) -> list[str]:
     Used to discover which insurance products in Annex I need a Sí/No selection.
     Searches all tables including nested ones.
     """
-    # Support all common variants of the SI/NO placeholder
+    # All variants including accented Í — fuzzy_search handles U+FFFD encoding corruption
     _SI_NO_VARIANTS = ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]"]
 
     results: list[str] = []
     for table in _iter_all_tables(doc):
         for row in table.rows:
             row_text = "".join(cell.text for cell in row.cells)
-            if not any(v in row_text for v in _SI_NO_VARIANTS):
+            if not any(_fuzzy_search(v, row_text) for v in _SI_NO_VARIANTS):
                 continue
             if not row.cells:
                 continue
@@ -628,7 +778,8 @@ def _fill_si_no_fields(doc: DocxDocument, si_no_values: dict[str, str]) -> None:
     for table in _iter_all_tables(doc):
         for row in table.rows:
             row_text = "".join(cell.text for cell in row.cells)
-            if not any(v in row_text for v in _SI_NO_VARIANTS):
+            # fuzzy_search handles U+FFFD encoding corruption for Í
+            if not any(_fuzzy_search(v, row_text) for v in _SI_NO_VARIANTS):
                 continue
             label = row.cells[0].text.strip() if row.cells else ""
             value = si_no_values.get(label, "")
@@ -859,8 +1010,9 @@ async def generate_contract_pdf(
     replacements = _build_partner_replacements(entity_type, body.partner_info)
     _replace_placeholders_in_docx(doc, replacements)
     # Commission placeholders and [ACTIVIDAD] are deliberately left as-is.
-    # Note: highlight colours are intentionally PRESERVED here so the partner
-    # can see which placeholders still need to be filled.
+    # Strip highlights only from fields that have been filled; keep colours on
+    # any remaining '[PLACEHOLDER]' text so the partner can see what's pending.
+    _strip_highlights_from_filled_elements(doc)
 
     # ── 2. Save patched DOCX to an in-memory buffer ───────────────────────────
     docx_buffer = io.BytesIO()
