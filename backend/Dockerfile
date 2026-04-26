@@ -22,6 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Tell Python where to find the application modules.
+# Without this, tools like 'alembic' that run as external scripts (not via
+# 'python -m') cannot locate the 'app' package even though we are in /app.
+ENV PYTHONPATH=/app
+
 # Copy and install Python dependencies first (Docker layer caching optimization)
 # This means re-building after code changes won't re-download all packages
 COPY requirements.txt .
