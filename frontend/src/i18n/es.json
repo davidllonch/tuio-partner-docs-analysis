@@ -131,6 +131,7 @@
     "cancel": "Cancelar",
     "create": "Crear analista",
     "creating": "Creando…",
+    "admin": "Admin",
     "errorDuplicate": "Ya existe un analista con este correo.",
     "errorGeneric": "No se ha podido crear el analista. Inténtalo de nuevo."
   },

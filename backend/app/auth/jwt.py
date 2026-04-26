@@ -92,3 +92,18 @@ async def get_current_analyst(
         )
 
     return analyst
+
+
+async def require_admin(
+    current_analyst: "Analyst" = Depends(get_current_analyst),
+) -> "Analyst":
+    """
+    Like get_current_analyst but also checks is_admin == True.
+    Raises HTTP 403 if the authenticated analyst does not have admin privileges.
+    """
+    if not current_analyst.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
+    return current_analyst

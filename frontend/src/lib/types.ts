@@ -63,6 +63,7 @@ export interface Analyst {
   id: string
   email: string
   full_name: string | null
+  is_admin: boolean
 }
 
 export interface LoginRequest {
@@ -91,6 +92,7 @@ export interface AnalystListItem {
   email: string
   full_name: string | null
   is_active: boolean
+  is_admin: boolean
   created_at: string
 }
 

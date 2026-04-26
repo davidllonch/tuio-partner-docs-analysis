@@ -68,13 +68,15 @@ export function TeamPage() {
               {t('team.subtitle')}
             </p>
           </div>
-          <button
-            onClick={() => { setShowAddForm((v) => !v); setFormError(null) }}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition-colors"
-          >
-            <UserPlus className="h-4 w-4" />
-            {t('team.addAnalyst')}
-          </button>
+          {currentAnalyst?.is_admin && (
+            <button
+              onClick={() => { setShowAddForm((v) => !v); setFormError(null) }}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition-colors"
+            >
+              <UserPlus className="h-4 w-4" />
+              {t('team.addAnalyst')}
+            </button>
+          )}
         </div>
 
         {/* Add analyst form */}
@@ -183,6 +185,11 @@ export function TeamPage() {
                       {analyst.full_name ?? '—'}
                       {analyst.email === currentAnalyst?.email && (
                         <span className="ml-2 text-xs text-primary-600 font-normal">({t('team.you')})</span>
+                      )}
+                      {analyst.is_admin && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                          {t('team.admin')}
+                        </span>
                       )}
                     </td>
                     <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{analyst.email}</td>

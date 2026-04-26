@@ -131,6 +131,7 @@
     "cancel": "Cancel",
     "create": "Create analyst",
     "creating": "Creating…",
+    "admin": "Admin",
     "errorDuplicate": "An analyst with this email already exists.",
     "errorGeneric": "Could not create analyst. Please try again."
   },

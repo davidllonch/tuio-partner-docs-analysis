@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.jwt import get_current_analyst, hash_password
+from app.auth.jwt import get_current_analyst, require_admin, hash_password
 from app.database import get_db
 from app.models.analyst import Analyst
 from app.schemas.auth import AnalystListItem, AnalystOut, CreateAnalystRequest
@@ -28,7 +28,7 @@ async def list_analysts(
 @router.post("", response_model=AnalystOut, status_code=status.HTTP_201_CREATED)
 async def create_analyst(
     body: CreateAnalystRequest,
-    current_analyst: Analyst = Depends(get_current_analyst),
+    current_analyst: Analyst = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """
