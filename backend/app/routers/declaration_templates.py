@@ -9,9 +9,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from docx import Document as DocxDocument
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -26,6 +28,9 @@ from app.models.declaration_template import DeclarationTemplate
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["declaration-templates"])
+
+# Rate limiter for the public PDF generation endpoint.
+_limiter = Limiter(key_func=get_remote_address)
 
 VALID_PROVIDER_TYPES = {
     "correduria_seguros",
@@ -444,7 +449,9 @@ async def download_template(
 
 
 @router.post("/declaration-templates/{provider_type}/{entity_type}/generate")
+@_limiter.limit("20/hour")
 async def generate_declaration_pdf(
+    request: Request,
     provider_type: str,
     entity_type: str,
     body: GenerateRequest,

@@ -235,7 +235,11 @@ async def _background_analyse(
                 submission = result.scalar_one_or_none()
                 if submission:
                     submission.status = "error"
-                    submission.error_message = str(exc)
+                    # Store only a generic message — full exception details are in
+                    # server logs only. We never expose internal error strings to
+                    # the database or the frontend.
+                    submission.error_message = "Analysis failed. Please check server logs for details."
+                    logger.error("Analysis error for submission %s: %s", submission_id, exc, exc_info=True)
                     await db.commit()
             except Exception as db_exc:
                 logger.error("Could not save error state for submission %s: %s", submission_id, db_exc)
@@ -287,6 +291,18 @@ async def create_submission(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="entity_type must be 'PF' (persona física) or 'PJ' (persona jurídica)",
+        )
+
+    if not country or not country.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="country is required",
+        )
+
+    if len(country) > 100:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="country must not exceed 100 characters",
         )
 
     if len(provider_name) > 255:

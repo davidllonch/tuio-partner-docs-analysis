@@ -10,9 +10,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from docx import Document as DocxDocument
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,6 +29,10 @@ from app.models.contract_template import ContractTemplate
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["contract-templates"])
+
+# Rate limiter for public endpoints — limits how many PDF generations a single
+# IP address can request per hour, to prevent abuse.
+_limiter = Limiter(key_func=get_remote_address)
 
 # Contract templates are only available for these three provider types.
 # agencia_seguros is excluded because they use a different contract framework.
@@ -620,7 +626,6 @@ def _replace_commission_placeholders_in_row(row, commission: dict) -> None:
     for cell in row.cells:
         for para in cell.paragraphs:
             _replace_in_paragraph_elem(para._p, replacements)
-        _remove_cell_shading(cell)
 
 
 def _replace_commission_in_tr(tr_elem, commission: dict) -> None:
@@ -993,7 +998,9 @@ async def download_template(
 
 
 @router.post("/contract-templates/{provider_type}/{entity_type}/generate")
+@_limiter.limit("20/hour")
 async def generate_contract_pdf(
+    request: Request,
     provider_type: str,
     entity_type: str,
     body: GenerateRequest,
@@ -1476,114 +1483,3 @@ async def debug_template(
         "total_paragraphs_with_content": len(paragraphs_info),
     }
 
-
-# ---------------------------------------------------------------------------
-# GET /api/diag/{secret}  — PUBLIC diagnostic (no JWT, protected by secret)
-# Temporary endpoint to diagnose DOCX templates from the browser.
-# Visit: /api/diag/tuio2024  in any browser tab (must be logged in to the app
-# so the server is reachable, but no JWT header needed).
-# ---------------------------------------------------------------------------
-
-
-@router.get("/diag/{secret}")
-async def diag_all_templates(
-    secret: str,
-    db: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-):
-    """
-    Temporary public diagnostic endpoint. Returns analysis of all uploaded
-    contract templates — which placeholders exist and how they are split across
-    XML runs.  Protected by a simple URL secret so it is not completely open.
-    Remove this endpoint once diagnosis is complete.
-    """
-    if secret != "tuio2024":
-        raise HTTPException(status_code=404, detail="Not found")
-
-    result = await db.execute(select(ContractTemplate))
-    templates = result.scalars().all()
-
-    if not templates:
-        return {"error": "No contract templates uploaded yet"}
-
-    all_expected = (
-        list(PARTNER_PF_MAP.keys())
-        + list(PARTNER_PJ_MAP.keys())
-        + list(ANALYST_MAP.keys())
-        + COMMISSION_PLACEHOLDERS
-        + ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]", "[DÍA]", "[MES]", "[AÑO]"]
-    )
-    # Deduplicate
-    all_expected = list(dict.fromkeys(all_expected))
-
-    output = {}
-
-    for tmpl in templates:
-        key = f"{tmpl.provider_type}/{tmpl.entity_type}"
-        if not os.path.exists(tmpl.file_path):
-            output[key] = {"error": "file missing on disk"}
-            continue
-
-        try:
-            doc = DocxDocument(tmpl.file_path)
-        except Exception as exc:
-            output[key] = {"error": str(exc)}
-            continue
-
-        entries = []
-
-        def _collect(para, loc: str) -> None:
-            text = para.text
-            if "[" not in text and "]" not in text:
-                return
-            runs = [r.text for r in para.runs if r.text]
-            entries.append({
-                "loc": loc,
-                "full_text": text,
-                "runs": runs,
-            })
-
-        for i, p in enumerate(doc.paragraphs):
-            _collect(p, f"body_p{i}")
-
-        queue = list(doc.tables)
-        ti = 0
-        while queue:
-            tbl = queue.pop(0)
-            for ri, row in enumerate(tbl.rows):
-                for ci, cell in enumerate(row.cells):
-                    for pi, p in enumerate(cell.paragraphs):
-                        _collect(p, f"t{ti}r{ri}c{ci}p{pi}")
-                    queue.extend(cell.tables)
-            ti += 1
-
-        # Also scan headers and footers (placeholders may live there)
-        for si, section in enumerate(doc.sections):
-            for hf_name, hf_obj in [
-                ("hdr", section.header), ("ftr", section.footer),
-                ("hdr1", section.first_page_header), ("ftr1", section.first_page_footer),
-                ("hdrev", section.even_page_header), ("ftrev", section.even_page_footer),
-            ]:
-                try:
-                    if hf_obj is None:
-                        continue
-                    for pi, p in enumerate(hf_obj.paragraphs):
-                        _collect(p, f"s{si}_{hf_name}_p{pi}")
-                    for thi, tbl in enumerate(hf_obj.tables):
-                        for ri, row in enumerate(tbl.rows):
-                            for ci, cell in enumerate(row.cells):
-                                for pi, p in enumerate(cell.paragraphs):
-                                    _collect(p, f"s{si}_{hf_name}_t{thi}r{ri}c{ci}p{pi}")
-                except Exception:
-                    pass
-
-        all_text = " ".join(e["full_text"] for e in entries)
-        summary = {ph: (ph in all_text) for ph in all_expected}
-
-        output[key] = {
-            "filename": tmpl.original_filename,
-            "placeholder_summary": summary,
-            "bracket_paragraphs": entries,
-        }
-
-    return output
