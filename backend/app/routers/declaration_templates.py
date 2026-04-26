@@ -348,7 +348,7 @@ async def download_template(
     if template is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No template found")
 
-    if not os.path.exists(template.file_path):
+    if not await asyncio.to_thread(os.path.exists, template.file_path):
         logger.error(
             "Declaration template file missing on disk: %s (provider=%s entity=%s)",
             template.file_path,
@@ -563,8 +563,8 @@ async def upload_template(
         await db.commit()
     except Exception:
         # Clean up the file if DB commit failed
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        if await asyncio.to_thread(os.path.exists, file_path):
+            await asyncio.to_thread(os.remove, file_path)
         raise
 
     await db.refresh(template, ["uploaded_by_analyst"])

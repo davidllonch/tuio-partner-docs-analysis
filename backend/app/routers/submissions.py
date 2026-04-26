@@ -3,6 +3,7 @@ import os
 import re
 import uuid
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import List, Optional
 
 import asyncio
@@ -527,6 +528,13 @@ async def create_submission(
 # ---------------------------------------------------------------------------
 
 
+@lru_cache(maxsize=1)
+def _get_anthropic_client(api_key: str):
+    """Create one AsyncAnthropic client per unique API key and reuse it across requests."""
+    import anthropic as anthropic_lib
+    return anthropic_lib.AsyncAnthropic(api_key=api_key)
+
+
 @router.get("/models")
 @_limiter.limit("20/minute")
 async def list_models(
@@ -538,11 +546,8 @@ async def list_models(
     Return the list of available Claude models from Anthropic.
     Analysts use this to choose which model to use for re-analysis.
     """
-    import anthropic as anthropic_lib
-
-    # Use the async client so this endpoint does not block the event loop
-    # while waiting for the network response from Anthropic.
-    client = anthropic_lib.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    # Reuse a cached client — avoids creating a new TCP connection on every request.
+    client = _get_anthropic_client(settings.ANTHROPIC_API_KEY)
     try:
         models_page = await client.models.list(limit=20)
         claude_models = [
@@ -575,6 +580,8 @@ async def list_submissions(
     """
     if page < 1:
         page = 1
+    if page > 10_000:
+        page = 10_000
     if size < 1 or size > 100:
         size = 20
 
@@ -664,8 +671,11 @@ async def download_document(
         )
 
     # Defense-in-depth: reject paths that escaped the expected storage directory.
-    # document.file_path comes from the DB; a compromised DB row could point anywhere.
-    if not document.file_path.startswith(settings.DOCUMENTS_BASE_PATH):
+    # Use realpath to resolve any ".." segments before comparing — a raw startswith()
+    # check can be bypassed with paths like "/data/documents/../etc/passwd".
+    _resolved = await asyncio.to_thread(os.path.realpath, document.file_path)
+    _base = await asyncio.to_thread(os.path.realpath, settings.DOCUMENTS_BASE_PATH)
+    if not _resolved.startswith(_base):
         logger.error(
             "Document path outside base dir: %s (doc_id=%s)", document.file_path, doc_id
         )
@@ -720,6 +730,7 @@ async def delete_document(
     doc_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_analyst: Analyst = Depends(get_current_analyst),
+    settings: Settings = Depends(get_settings),
 ):
     """
     Analyst removes a document from a submission.
@@ -735,13 +746,19 @@ async def delete_document(
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    # Delete file from disk (ignore if already gone). Both calls wrapped in
-    # asyncio.to_thread so sync filesystem ops don't block the event loop.
-    try:
-        if await asyncio.to_thread(os.path.exists, document.file_path):
-            await asyncio.to_thread(os.remove, document.file_path)
-    except OSError as e:
-        logger.warning("Could not delete file %s: %s", document.file_path, e)
+    # Validate path before deleting — same realpath check as download_document.
+    _resolved = await asyncio.to_thread(os.path.realpath, document.file_path)
+    _base = await asyncio.to_thread(os.path.realpath, settings.DOCUMENTS_BASE_PATH)
+    if document.file_path and not _resolved.startswith(_base):
+        logger.error("delete_document: path outside base dir: %s", document.file_path)
+        # Still delete the DB record but don't touch the filesystem
+    else:
+        # Delete file from disk (ignore if already gone).
+        try:
+            if await asyncio.to_thread(os.path.exists, document.file_path):
+                await asyncio.to_thread(os.remove, document.file_path)
+        except OSError as e:
+            logger.warning("Could not delete file %s: %s", document.file_path, e)
 
     await log_audit(
         db=db,
@@ -815,7 +832,7 @@ async def add_document(
     safe_filename = sanitize_filename(file.filename or "document")
     file_path = os.path.join(submission_dir, safe_filename)
     # Avoid name collisions
-    if os.path.exists(file_path):
+    if await asyncio.to_thread(os.path.exists, file_path):
         name, ext = os.path.splitext(safe_filename)
         safe_filename = f"{name}_{uuid.uuid4().hex[:6]}{ext}"
         file_path = os.path.join(submission_dir, safe_filename)
@@ -882,9 +899,14 @@ async def reanalyse_submission(
             detail="Cannot reanalyse: submission has no documents",
         )
 
+    _base = await asyncio.to_thread(os.path.realpath, settings.DOCUMENTS_BASE_PATH)
     extraction_inputs: list[dict] = []
     for doc in submission.documents:
-        if not os.path.exists(doc.file_path):
+        _resolved = await asyncio.to_thread(os.path.realpath, doc.file_path)
+        if not _resolved.startswith(_base):
+            logger.warning("reanalyse: skipping doc with path outside base dir: %s", doc.file_path)
+            continue
+        if not await asyncio.to_thread(os.path.exists, doc.file_path):
             logger.warning(
                 "Document file missing on disk during reanalysis: %s", doc.file_path
             )

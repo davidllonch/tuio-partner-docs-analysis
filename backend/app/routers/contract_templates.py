@@ -158,6 +158,8 @@ class GenerateFullRequest(BaseModel):
     @field_validator("partner_info")
     @classmethod
     def validate_partner_info_values(cls, v):
+        if len(v) > 50:
+            raise ValueError("partner_info must not contain more than 50 keys")
         for key, val in v.items():
             if isinstance(val, str) and len(val) > 1000:
                 raise ValueError(f"Field '{key}' exceeds maximum length of 1000 characters")
@@ -171,6 +173,9 @@ class GenerateFullRequest(BaseModel):
         commissions = v.get("commissions", [])
         if len(commissions) > 100:
             raise ValueError("commissions must not exceed 100 rows")
+        fields = v.get("fields", {})
+        if len(fields) > 50:
+            raise ValueError("contract_data.fields must not contain more than 50 keys")
         return v
 
 
@@ -917,7 +922,7 @@ async def download_template(
     if template is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No template found")
 
-    if not os.path.exists(template.file_path):
+    if not await asyncio.to_thread(os.path.exists, template.file_path):
         logger.error(
             "Contract template file missing on disk: %s (provider=%s entity=%s)",
             template.file_path,
@@ -993,7 +998,7 @@ async def generate_contract_pdf(
             detail="No contract template found for this provider type and entity type",
         )
 
-    if not os.path.exists(template.file_path):
+    if not await asyncio.to_thread(os.path.exists, template.file_path):
         logger.error(
             "Contract template file missing on disk: %s", template.file_path
         )
@@ -1079,7 +1084,7 @@ async def generate_full_contract_pdf(
             detail="No contract template found for this provider type and entity type",
         )
 
-    if not os.path.exists(template.file_path):
+    if not await asyncio.to_thread(os.path.exists, template.file_path):
         logger.error(
             "Contract template file missing on disk: %s", template.file_path
         )
@@ -1162,7 +1167,7 @@ async def get_placeholder_context(
         )
     )
     template = result.scalar_one_or_none()
-    if template is None or not os.path.exists(template.file_path):
+    if template is None or not await asyncio.to_thread(os.path.exists, template.file_path):
         return {"context": {}}
 
     try:
@@ -1207,7 +1212,7 @@ async def get_si_no_fields(
         )
     )
     template = result.scalar_one_or_none()
-    if template is None or not os.path.exists(template.file_path):
+    if template is None or not await asyncio.to_thread(os.path.exists, template.file_path):
         return {"fields": []}
 
     try:
@@ -1330,8 +1335,8 @@ async def upload_template(
         await db.commit()
     except Exception:
         # Clean up the file if DB commit failed
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        if await asyncio.to_thread(os.path.exists, file_path):
+            await asyncio.to_thread(os.remove, file_path)
         raise
 
     await db.refresh(template_record, ["uploaded_by_analyst"])

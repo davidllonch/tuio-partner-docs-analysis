@@ -53,9 +53,10 @@ async def send_submission_notification(
     """
     provider_display = PROVIDER_TYPE_DISPLAY.get(provider_type, provider_type)
 
-    # Escape user-supplied values before embedding in HTML to prevent injection
+    # Escape all values before embedding in HTML to prevent injection
     safe_name = html.escape(provider_name)
     safe_display = html.escape(provider_display)
+    safe_dashboard_url = html.escape(dashboard_url)
     # Strip newlines to prevent email header injection — a malicious provider name
     # containing "\r\n" could otherwise inject extra headers into the email envelope.
     safe_subject_name = provider_name.replace("\r", "").replace("\n", "").strip()[:200]
@@ -80,7 +81,7 @@ async def send_submission_notification(
             La documentación ha sido recibida y el análisis KYC/KYB está disponible en el dashboard.
         </p>
         <p style="margin-top: 24px;">
-            <a href="{dashboard_url}"
+            <a href="{safe_dashboard_url}"
                style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px;
                       text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">
                 Ver análisis en el Dashboard →
