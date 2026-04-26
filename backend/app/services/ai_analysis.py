@@ -265,6 +265,16 @@ def _convert_to_openai_content(anthropic_content: list[dict]) -> list[dict]:
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
 
+_anthropic_client: anthropic.AsyncAnthropic | None = None
+
+
+def _get_anthropic_client(api_key: str) -> anthropic.AsyncAnthropic:
+    """Return a module-level cached AsyncAnthropic client."""
+    global _anthropic_client
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.AsyncAnthropic(api_key=api_key)
+    return _anthropic_client
+
 
 async def _call_anthropic(
     content_list: list[dict],
@@ -275,7 +285,7 @@ async def _call_anthropic(
     Call Anthropic's Claude API with the KYC system prompt and document content.
     Uses prompt caching on the system prompt to reduce costs on repeated calls.
     """
-    client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
+    client = _get_anthropic_client(anthropic_api_key)
     response = await client.messages.create(
         model=model,
         max_tokens=4096,

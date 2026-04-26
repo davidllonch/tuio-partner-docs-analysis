@@ -3,7 +3,6 @@ import os
 import re
 import uuid
 from datetime import datetime, timezone
-from functools import lru_cache
 from typing import List, Optional
 
 import asyncio
@@ -99,24 +98,21 @@ def _verify_magic_bytes(data: bytes, declared_mime: str) -> bool:
     return True
 
 
-async def _write_file_to_disk(upload_file: UploadFile, dest_path: str) -> int:
+async def _write_file_to_disk(content: bytes, dest_path: str) -> int:
     """
-    Write an UploadFile to disk and return the number of bytes written.
+    Write pre-read file bytes to disk and return the number of bytes written.
 
+    Accepts already-read bytes so callers that validated file content first
+    (magic-byte check, size check) do not need to re-read the upload.
     Uses asyncio.to_thread so the synchronous file-write does not block
     the async event loop — important when handling multiple concurrent uploads.
     """
-    # Read all content first (async), then write to disk in a thread
-    content = await upload_file.read()
-    total_bytes = len(content)
-    await upload_file.seek(0)
-
     def _sync_write():
         with open(dest_path, "wb") as f:
             f.write(content)
 
     await asyncio.to_thread(_sync_write)
-    return total_bytes
+    return len(content)
 
 
 # ---------------------------------------------------------------------------
@@ -346,8 +342,8 @@ async def create_submission(
                 detail="Each label must not exceed 255 characters",
             )
 
-    # Validate each file's MIME type and size
-    file_sizes: list[int] = []
+    # Validate each file's MIME type and size; keep the bytes for writing later
+    file_contents: list[bytes] = []
     for i, upload_file in enumerate(files):
         if upload_file.content_type not in ALLOWED_MIME_TYPES:
             raise HTTPException(
@@ -358,10 +354,8 @@ async def create_submission(
                 ),
             )
         content = await upload_file.read()
-        size = len(content)
-        await upload_file.seek(0)
 
-        if size > MAX_FILE_SIZE_BYTES:
+        if len(content) > MAX_FILE_SIZE_BYTES:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"File '{upload_file.filename}' exceeds the 20 MB size limit",
@@ -374,9 +368,9 @@ async def create_submission(
                 detail="File content does not match declared type",
             )
 
-        file_sizes.append(size)
+        file_contents.append(content)
 
-    total_size = sum(file_sizes)
+    total_size = sum(len(c) for c in file_contents)
     if total_size > MAX_TOTAL_SIZE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -455,7 +449,7 @@ async def create_submission(
             safe_filename = f"{name}_{i}{ext}"
             file_path = os.path.join(submission_dir, safe_filename)
 
-        size_bytes = await _write_file_to_disk(upload_file, file_path)
+        size_bytes = await _write_file_to_disk(file_contents[i], file_path)
 
         doc = Document(
             id=uuid.uuid4(),
@@ -528,11 +522,21 @@ async def create_submission(
 # ---------------------------------------------------------------------------
 
 
-@lru_cache(maxsize=1)
+_anthropic_client = None
+
+
 def _get_anthropic_client(api_key: str):
-    """Create one AsyncAnthropic client per unique API key and reuse it across requests."""
-    import anthropic as anthropic_lib
-    return anthropic_lib.AsyncAnthropic(api_key=api_key)
+    """Return a module-level cached AsyncAnthropic client.
+
+    Using a module-level variable instead of @lru_cache avoids storing the API
+    key as a dict key inside the lru_cache internals, which could expose it in
+    tracebacks or memory dumps.
+    """
+    global _anthropic_client
+    if _anthropic_client is None:
+        import anthropic as anthropic_lib
+        _anthropic_client = anthropic_lib.AsyncAnthropic(api_key=api_key)
+    return _anthropic_client
 
 
 @router.get("/models")
@@ -823,8 +827,6 @@ async def add_document(
             detail="File content does not match declared type",
         )
 
-    await file.seek(0)
-
     # Save to disk
     submission_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, str(submission_id))
     await asyncio.to_thread(os.makedirs, submission_dir, exist_ok=True)
@@ -837,7 +839,7 @@ async def add_document(
         safe_filename = f"{name}_{uuid.uuid4().hex[:6]}{ext}"
         file_path = os.path.join(submission_dir, safe_filename)
 
-    size_bytes = await _write_file_to_disk(file, file_path)
+    size_bytes = await _write_file_to_disk(content, file_path)
 
     doc = Document(
         id=uuid.uuid4(),

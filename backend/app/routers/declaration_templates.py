@@ -119,9 +119,9 @@ def _write_bytes_to_file(path: str, data: bytes) -> None:
         f.write(data)
 
 
-def _get_template_dir(documents_base_path: str) -> str:
+async def _get_template_dir(documents_base_path: str) -> str:
     template_dir = os.path.join(documents_base_path, "declaration_templates")
-    os.makedirs(template_dir, exist_ok=True)
+    await asyncio.to_thread(os.makedirs, template_dir, exist_ok=True)
     return template_dir
 
 
@@ -348,7 +348,14 @@ async def download_template(
     if template is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No template found")
 
-    if not await asyncio.to_thread(os.path.exists, template.file_path):
+    # Prevent path traversal: ensure the stored path resolves inside the expected dir
+    template_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, "declaration_templates")
+    real_path = os.path.realpath(template.file_path)
+    if not real_path.startswith(os.path.realpath(template_dir) + os.sep):
+        logger.error("Declaration template path escapes base dir: %s", template.file_path)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
+
+    if not await asyncio.to_thread(os.path.exists, real_path):
         logger.error(
             "Declaration template file missing on disk: %s (provider=%s entity=%s)",
             template.file_path,
@@ -361,7 +368,7 @@ async def download_template(
         )
 
     return FileResponse(
-        path=template.file_path,
+        path=real_path,
         media_type=DOCX_MIME_TYPE,
         filename=template.original_filename,
         headers={
@@ -420,7 +427,7 @@ async def generate_declaration_pdf(
             detail="No declaration template found for this provider type and entity type",
         )
 
-    if not os.path.exists(template.file_path):
+    if not await asyncio.to_thread(os.path.exists, template.file_path):
         logger.error(
             "Declaration template file missing on disk: %s", template.file_path
         )
@@ -510,7 +517,7 @@ async def upload_template(
         )
 
     # Save to disk — fixed path: declaration_templates/{provider_type}_{entity_type}.docx
-    template_dir = _get_template_dir(settings.DOCUMENTS_BASE_PATH)
+    template_dir = await _get_template_dir(settings.DOCUMENTS_BASE_PATH)
     file_path = os.path.join(template_dir, f"{provider_type}_{entity_type}.docx")
 
     safe_original = sanitize_filename(

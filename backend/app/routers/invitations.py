@@ -212,7 +212,7 @@ async def cancel_invitation(
             detail=f"Cannot cancel an invitation with status '{invitation.status}'",
         )
 
-    invitation.status = "expired"
+    invitation.status = "cancelled"
 
     await log_audit(
         db=db,
