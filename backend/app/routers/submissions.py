@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -36,9 +35,10 @@ from app.config import Settings, get_settings
 from app.database import get_db, AsyncSessionLocal
 from app.models.analysis import Analysis
 from app.models.analyst import Analyst
-from app.models.audit import AuditLog
 from app.models.invitation import Invitation
 from app.models.submission import Document, Submission
+from app.utils.audit import log_audit
+from app.utils.file_utils import sanitize_filename
 from app.schemas.submission import (
     ReanalyseRequest,
     ReanalyseResponse,
@@ -101,21 +101,6 @@ def _verify_magic_bytes(data: bytes, declared_mime: str) -> bool:
     return True
 
 
-def _sanitize_filename(filename: str) -> str:
-    """
-    Make a filename safe for storage:
-    - Replace spaces with underscores
-    - Remove characters that could cause path traversal attacks
-    - Keep the extension
-    """
-    filename = os.path.basename(filename)
-    filename = filename.replace(" ", "_")
-    filename = re.sub(r"[^\w\-.]", "", filename)
-    if not filename:
-        filename = "document"
-    return filename
-
-
 async def _write_file_to_disk(upload_file: UploadFile, dest_path: str) -> int:
     """
     Write an UploadFile to disk and return the number of bytes written.
@@ -134,26 +119,6 @@ async def _write_file_to_disk(upload_file: UploadFile, dest_path: str) -> int:
 
     await asyncio.to_thread(_sync_write)
     return total_bytes
-
-
-async def _log_audit(
-    db: AsyncSession,
-    action: str,
-    analyst_id: Optional[uuid.UUID] = None,
-    submission_id: Optional[uuid.UUID] = None,
-    metadata: Optional[dict] = None,
-) -> None:
-    """Write an entry to the audit log."""
-    log_entry = AuditLog(
-        id=uuid.uuid4(),
-        analyst_id=analyst_id,
-        action=action,
-        submission_id=submission_id,
-        timestamp=datetime.now(timezone.utc),
-        metadata_=metadata,
-    )
-    db.add(log_entry)
-    await db.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -464,7 +429,7 @@ async def create_submission(
     extraction_inputs: list[dict] = []
 
     for i, upload_file in enumerate(files):
-        safe_filename = _sanitize_filename(upload_file.filename or f"document_{i}")
+        safe_filename = sanitize_filename(upload_file.filename or f"document_{i}")
         file_path = os.path.join(submission_dir, safe_filename)
 
         if os.path.exists(file_path):
@@ -641,7 +606,7 @@ async def get_submission(
             detail="Submission not found",
         )
 
-    await _log_audit(
+    await log_audit(
         db=db,
         action="submission_viewed",
         analyst_id=current_analyst.id,
@@ -687,7 +652,7 @@ async def download_document(
             detail="File no longer exists on disk",
         )
 
-    await _log_audit(
+    await log_audit(
         db=db,
         action="document_downloaded",
         analyst_id=current_analyst.id,
@@ -748,7 +713,7 @@ async def delete_document(
     except OSError as e:
         logger.warning("Could not delete file %s: %s", document.file_path, e)
 
-    await _log_audit(
+    await log_audit(
         db=db,
         action="document_deleted",
         analyst_id=current_analyst.id,
@@ -811,7 +776,7 @@ async def add_document(
     submission_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, str(submission_id))
     os.makedirs(submission_dir, exist_ok=True)
 
-    safe_filename = _sanitize_filename(file.filename or "document")
+    safe_filename = sanitize_filename(file.filename or "document")
     file_path = os.path.join(submission_dir, safe_filename)
     # Avoid name collisions
     if os.path.exists(file_path):
@@ -833,7 +798,7 @@ async def add_document(
     )
     db.add(doc)
 
-    await _log_audit(
+    await log_audit(
         db=db,
         action="document_added",
         analyst_id=current_analyst.id,
@@ -941,7 +906,7 @@ async def reanalyse_submission(
         submission.status = "complete"
         submission.error_message = None
 
-        await _log_audit(
+        await log_audit(
             db=db,
             action="reanalysis_triggered",
             analyst_id=current_analyst.id,
@@ -1002,7 +967,7 @@ async def update_contract_data(
     submission.contract_data = body.contract_data
 
     # S7: record this change in the audit log so analysts can see who edited contract data
-    await _log_audit(
+    await log_audit(
         db=db,
         action="contract_data_updated",
         analyst_id=current_analyst.id,
@@ -1092,7 +1057,7 @@ async def download_report_pdf(
     filename = f"Informe_KYC_{safe_name}.pdf" if safe_name else "Informe_KYC.pdf"
 
     # Record PDF download in the audit log (W2)
-    await _log_audit(
+    await log_audit(
         db=db,
         action="report_pdf_downloaded",
         analyst_id=current_analyst.id,

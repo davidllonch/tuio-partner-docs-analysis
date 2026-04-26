@@ -13,8 +13,8 @@ from app.auth.jwt import get_current_analyst
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models.analyst import Analyst
-from app.models.audit import AuditLog
 from app.models.invitation import Invitation
+from app.utils.audit import log_audit
 from app.schemas.submission import (
     CreateInvitationRequest,
     InvitationCreateResponse,
@@ -28,23 +28,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["invitations"])
 
 _limiter = Limiter(key_func=get_remote_address)
-
-
-async def _log_audit(
-    db: AsyncSession,
-    action: str,
-    analyst_id: uuid.UUID | None = None,
-    metadata: dict | None = None,
-) -> None:
-    log_entry = AuditLog(
-        id=uuid.uuid4(),
-        analyst_id=analyst_id,
-        action=action,
-        timestamp=datetime.now(timezone.utc),
-        metadata_=metadata,
-    )
-    db.add(log_entry)
-    await db.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +60,7 @@ async def create_invitation(
     db.add(invitation)
     await db.flush()
 
-    await _log_audit(
+    await log_audit(
         db=db,
         action="invitation_created",
         analyst_id=current_analyst.id,
@@ -232,7 +215,7 @@ async def cancel_invitation(
 
     invitation.status = "expired"
 
-    await _log_audit(
+    await log_audit(
         db=db,
         action="invitation_cancelled",
         analyst_id=current_analyst.id,

@@ -1,9 +1,6 @@
-import asyncio
 import io
 import logging
 import os
-import re
-import tempfile
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -22,8 +19,10 @@ from app.auth.jwt import get_current_analyst
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models.analyst import Analyst
-from app.models.audit import AuditLog
 from app.models.declaration_template import DeclarationTemplate
+from app.utils.audit import log_audit
+from app.utils.docx_utils import convert_docx_to_pdf_via_libreoffice
+from app.utils.file_utils import sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -116,32 +115,6 @@ class GenerateRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-async def _log_audit(
-    db: AsyncSession,
-    action: str,
-    analyst_id: uuid.UUID | None = None,
-    metadata: dict | None = None,
-) -> None:
-    log_entry = AuditLog(
-        id=uuid.uuid4(),
-        analyst_id=analyst_id,
-        action=action,
-        timestamp=datetime.now(timezone.utc),
-        metadata_=metadata,
-    )
-    db.add(log_entry)
-    await db.flush()
-
-
-def _sanitize_filename(filename: str) -> str:
-    filename = os.path.basename(filename)
-    filename = filename.replace(" ", "_")
-    filename = re.sub(r"[^\w\-.]", "", filename)
-    if not filename:
-        filename = "declaration"
-    return filename
-
-
 def _get_template_dir(documents_base_path: str) -> str:
     template_dir = os.path.join(documents_base_path, "declaration_templates")
     os.makedirs(template_dir, exist_ok=True)
@@ -208,67 +181,6 @@ def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str
             for cell in row.cells:
                 for para in cell.paragraphs:
                     _replace_in_paragraph_elem(para._p, replacements)
-
-
-async def _convert_docx_to_pdf_via_libreoffice(docx_bytes: bytes) -> bytes:
-    """
-    Convert DOCX bytes → PDF bytes using LibreOffice headless.
-
-    LibreOffice is the only reliable way to produce a pixel-perfect PDF from a DOCX
-    (it uses the same rendering engine as the desktop app).  We run it as a subprocess
-    to avoid blocking the async event loop.
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        docx_path = os.path.join(tmpdir, "document.docx")
-        with open(docx_path, "wb") as fh:
-            fh.write(docx_bytes)
-
-        # Give LibreOffice its own HOME so it never conflicts with another instance
-        env = os.environ.copy()
-        env["HOME"] = tmpdir
-
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "libreoffice",
-                "--headless",
-                "--norestore",
-                "--convert-to", "pdf",
-                "--outdir", tmpdir,
-                docx_path,
-                env=env,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60.0)
-        except asyncio.TimeoutError:
-            proc.kill()
-            logger.error("LibreOffice PDF conversion timed out")
-            raise HTTPException(
-                status_code=500,
-                detail="PDF conversion timed out",
-            )
-
-        if proc.returncode != 0:
-            logger.error(
-                "LibreOffice conversion failed (exit=%d): %s",
-                proc.returncode,
-                stderr.decode(errors="replace"),
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="PDF conversion failed",
-            )
-
-        pdf_path = os.path.join(tmpdir, "document.pdf")
-        if not os.path.exists(pdf_path):
-            logger.error("LibreOffice ran successfully but produced no PDF output")
-            raise HTTPException(
-                status_code=500,
-                detail="PDF conversion produced no output",
-            )
-
-        with open(pdf_path, "rb") as fh:
-            return fh.read()
 
 
 def _build_replacements(entity_type: str, partner_info: dict) -> dict[str, str]:
@@ -524,7 +436,7 @@ async def generate_declaration_pdf(
     docx_bytes = docx_buffer.getvalue()
 
     # ── 3. Convert patched DOCX → PDF via LibreOffice ────────────────────────
-    pdf_bytes = await _convert_docx_to_pdf_via_libreoffice(docx_bytes)
+    pdf_bytes = await convert_docx_to_pdf_via_libreoffice(docx_bytes)
 
     # ── 4. Stream back ────────────────────────────────────────────────────────
     return StreamingResponse(
@@ -600,7 +512,7 @@ async def upload_template(
     with open(file_path, "wb") as f:
         f.write(content)
 
-    safe_original = _sanitize_filename(
+    safe_original = sanitize_filename(
         file.filename or f"{provider_type}_{entity_type}_declaraciones.docx"
     )
 
@@ -633,7 +545,7 @@ async def upload_template(
         )
         db.add(template)
 
-    await _log_audit(
+    await log_audit(
         db=db,
         action="declaration_template_uploaded",
         analyst_id=current_analyst.id,
