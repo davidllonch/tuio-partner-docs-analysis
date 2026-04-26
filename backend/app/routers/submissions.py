@@ -11,7 +11,7 @@ import markdown as md_lib
 import weasyprint
 import nh3
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from fastapi import (
     APIRouter,
@@ -80,6 +80,27 @@ MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024   # 20 MB per file
 MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024  # 100 MB total
 
 
+def _verify_magic_bytes(data: bytes, declared_mime: str) -> bool:
+    """
+    Verify that a file's actual content matches its declared MIME type
+    by checking the first few bytes (the 'magic bytes' or 'file signature').
+
+    Think of it like checking that a box labelled 'apples' actually contains
+    apples when you open it — not oranges with a fake label.
+    """
+    if declared_mime == "application/pdf":
+        return data[:4] == b"%PDF"
+    if declared_mime == "image/jpeg":
+        return data[:3] == b"\xFF\xD8\xFF"
+    if declared_mime == "image/png":
+        return data[:4] == b"\x89PNG"
+    if declared_mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        # DOCX files are ZIP archives — all ZIPs start with PK\x03\x04
+        return data[:4] == b"PK\x03\x04"
+    # Unknown but accepted MIME — allow by default
+    return True
+
+
 def _sanitize_filename(filename: str) -> str:
     """
     Make a filename safe for storage:
@@ -96,15 +117,22 @@ def _sanitize_filename(filename: str) -> str:
 
 
 async def _write_file_to_disk(upload_file: UploadFile, dest_path: str) -> int:
-    """Write an UploadFile to disk and return the number of bytes written."""
-    total_bytes = 0
-    with open(dest_path, "wb") as f:
-        while True:
-            chunk = await upload_file.read(1024 * 64)  # 64KB chunks
-            if not chunk:
-                break
-            f.write(chunk)
-            total_bytes += len(chunk)
+    """
+    Write an UploadFile to disk and return the number of bytes written.
+
+    Uses asyncio.to_thread so the synchronous file-write does not block
+    the async event loop — important when handling multiple concurrent uploads.
+    """
+    # Read all content first (async), then write to disk in a thread
+    content = await upload_file.read()
+    total_bytes = len(content)
+    await upload_file.seek(0)
+
+    def _sync_write():
+        with open(dest_path, "wb") as f:
+            f.write(content)
+
+    await asyncio.to_thread(_sync_write)
     return total_bytes
 
 
@@ -343,6 +371,14 @@ async def create_submission(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"File '{upload_file.filename}' exceeds the 20 MB size limit",
             )
+
+        # S3: verify actual file content matches the declared MIME type
+        if not _verify_magic_bytes(content, upload_file.content_type):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="File content does not match declared type",
+            )
+
         file_sizes.append(size)
 
     total_size = sum(file_sizes)
@@ -355,8 +391,12 @@ async def create_submission(
     # ── 1b. If invitation_token provided, validate and load invitation data ───
     invitation: Optional[Invitation] = None
     if invitation_token:
+        # S13: use .with_for_update() to lock the row during the transaction,
+        # preventing two simultaneous requests from both passing the same token.
         inv_result = await db.execute(
-            select(Invitation).where(Invitation.token == invitation_token)
+            select(Invitation)
+            .where(Invitation.token == invitation_token)
+            .with_for_update()
         )
         invitation = inv_result.scalar_one_or_none()
 
@@ -740,6 +780,14 @@ async def add_document(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="File exceeds the 20 MB size limit",
         )
+
+    # S3: verify actual file content matches the declared MIME type
+    if not _verify_magic_bytes(content, file.content_type):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="File content does not match declared type",
+        )
+
     await file.seek(0)
 
     # Save to disk
@@ -915,7 +963,8 @@ async def reanalyse_submission(
 
 
 class ContractDataUpdate(BaseModel):
-    contract_data: str
+    # S8: limit the maximum size to prevent storing excessively large payloads
+    contract_data: str = Field(max_length=500_000)
 
 
 @router.patch("/submissions/{submission_id}/contract-data")
@@ -934,6 +983,16 @@ async def update_contract_data(
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
     submission.contract_data = body.contract_data
+
+    # S7: record this change in the audit log so analysts can see who edited contract data
+    await _log_audit(
+        db=db,
+        action="contract_data_updated",
+        analyst_id=current_analyst.id,
+        submission_id=submission_id,
+        metadata={"analyst_email": current_analyst.email},
+    )
+
     await db.commit()
     return {"ok": True}
 

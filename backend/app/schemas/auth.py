@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr  # Q5: validate email format before attempting DB lookup
     password: str
 
 

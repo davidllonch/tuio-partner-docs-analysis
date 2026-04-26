@@ -41,6 +41,13 @@ RUN mkdir -p /data/documents
 
 EXPOSE 8000
 
+# S14: Create a non-root user and switch to it for security.
+# Running as root inside a container is risky — if the app is compromised,
+# an attacker would have root access to the container. A dedicated user limits the damage.
+RUN adduser --disabled-password --no-create-home --gecos "" appuser \
+    && chown -R appuser:appuser /data/documents
+USER appuser
+
 # Start the application with 2 worker processes.
 # Each worker can handle one request at a time; 2 workers allow some parallelism.
 # For production under heavy load, increase workers or use --workers $(nproc).

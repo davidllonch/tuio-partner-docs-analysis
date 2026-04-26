@@ -3,7 +3,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from jose import JWTError, jwt
+import jwt
+from jwt import ExpiredSignatureError, InvalidTokenError
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -70,7 +71,7 @@ async def get_current_analyst(
         analyst_id: Optional[str] = payload.get("sub")
         if analyst_id is None:
             raise credentials_exception
-    except JWTError:
+    except (ExpiredSignatureError, InvalidTokenError):
         logger.warning("JWT validation failed")
         raise credentials_exception
 

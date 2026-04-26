@@ -125,6 +125,11 @@ async def list_invitations(
     Return a paginated list of all invitations (all analysts see all invitations).
     Optionally filter by status: pending | submitted | expired.
     """
+    # S6: validate status_filter against the known set of valid values
+    VALID_STATUSES = {"pending", "submitted", "expired", "cancelled"}
+    if status_filter and status_filter not in VALID_STATUSES:
+        raise HTTPException(status_code=422, detail="Invalid status_filter value")
+
     if page < 1:
         page = 1
     if size < 1 or size > 100:

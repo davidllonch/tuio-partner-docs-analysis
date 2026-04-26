@@ -11,7 +11,7 @@ from typing import Optional
 from docx import Document as DocxDocument
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import select
@@ -100,6 +100,15 @@ class AllTemplatesResponse(BaseModel):
 
 class GenerateRequest(BaseModel):
     partner_info: dict
+
+    # S12: prevent any single field value from being excessively long
+    @field_validator("partner_info")
+    @classmethod
+    def validate_partner_info_values(cls, v):
+        for key, val in v.items():
+            if isinstance(val, str) and len(val) > 1000:
+                raise ValueError(f"Field '{key}' exceeds maximum length of 1000 characters")
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -390,7 +399,9 @@ async def get_template_info(
 
 
 @router.get("/declaration-templates/{provider_type}/{entity_type}/download")
+@_limiter.limit("60/hour")
 async def download_template(
+    request: Request,
     provider_type: str,
     entity_type: str,
     db: AsyncSession = Depends(get_db),

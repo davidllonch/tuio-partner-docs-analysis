@@ -12,7 +12,7 @@ from typing import Optional
 from docx import Document as DocxDocument
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import select
@@ -142,10 +142,28 @@ class AllTemplatesResponse(BaseModel):
 class GenerateRequest(BaseModel):
     partner_info: dict
 
+    # S12: prevent any single field value from being excessively long
+    @field_validator("partner_info")
+    @classmethod
+    def validate_partner_info_values(cls, v):
+        for key, val in v.items():
+            if isinstance(val, str) and len(val) > 1000:
+                raise ValueError(f"Field '{key}' exceeds maximum length of 1000 characters")
+        return v
+
 
 class GenerateFullRequest(BaseModel):
     partner_info: dict
     contract_data: dict  # { "fields": { "actividad": "..." }, "commissions": [...] }
+
+    # S12: prevent any single field value from being excessively long
+    @field_validator("partner_info")
+    @classmethod
+    def validate_partner_info_values(cls, v):
+        for key, val in v.items():
+            if isinstance(val, str) and len(val) > 1000:
+                raise ValueError(f"Field '{key}' exceeds maximum length of 1000 characters")
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -939,7 +957,9 @@ async def get_template_info(
 
 
 @router.get("/contract-templates/{provider_type}/{entity_type}/download")
+@_limiter.limit("60/hour")
 async def download_template(
+    request: Request,
     provider_type: str,
     entity_type: str,
     db: AsyncSession = Depends(get_db),
@@ -1390,96 +1410,4 @@ async def upload_template(
     )
 
 
-# ---------------------------------------------------------------------------
-# GET /api/contract-templates/{provider_type}/{entity_type}/debug  (JWT)
-# Diagnostic endpoint — dumps all text runs in the DOCX to help identify
-# why placeholders are not being found or replaced.
-# ---------------------------------------------------------------------------
-
-
-@router.get("/contract-templates/{provider_type}/{entity_type}/debug")
-async def debug_template(
-    provider_type: str,
-    entity_type: str,
-    db: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    current_analyst: Analyst = Depends(get_current_analyst),
-):
-    """
-    Diagnostic endpoint: returns the full text content of the contract template
-    at run level, so we can see exactly how placeholders are stored in the DOCX XML.
-    Only accessible to authenticated analysts.
-    """
-    if provider_type not in VALID_PROVIDER_TYPES:
-        raise HTTPException(status_code=422, detail="Invalid provider_type")
-    if entity_type not in VALID_ENTITY_TYPES:
-        raise HTTPException(status_code=422, detail="entity_type must be 'PF' or 'PJ'")
-
-    result = await db.execute(
-        select(ContractTemplate).where(
-            ContractTemplate.provider_type == provider_type,
-            ContractTemplate.entity_type == entity_type,
-        )
-    )
-    template = result.scalar_one_or_none()
-    if template is None:
-        return {"error": "No template uploaded for this combination"}
-    if not os.path.exists(template.file_path):
-        return {"error": "Template file missing on disk", "path": template.file_path}
-
-    try:
-        doc = DocxDocument(template.file_path)
-    except Exception as exc:
-        return {"error": f"Could not open DOCX: {exc}"}
-
-    # All expected placeholders (so we can report which ones are found)
-    all_expected = list(PARTNER_PF_MAP.keys()) + list(PARTNER_PJ_MAP.keys()) + list(ANALYST_MAP.keys()) + COMMISSION_PLACEHOLDERS + ["[SI/NO]", "[SI / NO]", "[SÍ/NO]", "[SÍ / NO]", "[DÍA]", "[MES]", "[AÑO]"]
-
-    def _para_debug(para, location: str) -> dict | None:
-        runs = [r.text for r in para.runs]
-        full = para.text
-        found_phs = [ph for ph in all_expected if ph in full]
-        # Also detect partial/split placeholders by looking for bracket chars
-        has_bracket = "[" in full or "]" in full
-        if not full.strip() and not has_bracket:
-            return None
-        return {
-            "location": location,
-            "full_text": full[:200],
-            "runs": runs,
-            "placeholders_found": found_phs,
-            "has_bracket": has_bracket,
-        }
-
-    paragraphs_info = []
-
-    # Body paragraphs
-    for i, para in enumerate(doc.paragraphs):
-        info = _para_debug(para, f"body_para_{i}")
-        if info:
-            paragraphs_info.append(info)
-
-    # All table cells (including nested)
-    table_idx = 0
-    for table in _iter_all_tables(doc):
-        for ri, row in enumerate(table.rows):
-            for ci, cell in enumerate(row.cells):
-                for pi, para in enumerate(cell.paragraphs):
-                    info = _para_debug(
-                        para, f"table{table_idx}_row{ri}_cell{ci}_para{pi}"
-                    )
-                    if info:
-                        paragraphs_info.append(info)
-        table_idx += 1
-
-    # Summary: which expected placeholders were found anywhere
-    all_text = " ".join(p["full_text"] for p in paragraphs_info)
-    found_summary = {ph: (ph in all_text) for ph in all_expected}
-
-    return {
-        "filename": template.original_filename,
-        "placeholder_summary": found_summary,
-        "paragraphs": paragraphs_info,
-        "total_paragraphs_with_content": len(paragraphs_info),
-    }
 

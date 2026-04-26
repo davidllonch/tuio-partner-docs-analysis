@@ -169,8 +169,7 @@ class InvitationCreateResponse(InvitationListItem):
 
 class InvitationPublic(BaseModel):
     """Returned by the public GET /invitations/:token endpoint.
-    Does NOT include the token or analyst details."""
-    id: uuid.UUID
+    Does NOT include the internal id, token, or analyst details."""
     provider_name: str
     provider_type: str
     entity_type: str

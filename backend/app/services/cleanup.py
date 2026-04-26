@@ -19,16 +19,8 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
 
     Args:
         documents_base_path: Root directory where submission folders are stored
-        database_url:        PostgreSQL connection string (sync format for this job)
+        database_url:        PostgreSQL connection string (kept for scheduler API compat)
     """
-    # Convert async URL to sync for use in this background job
-    # asyncpg URL → psycopg2 URL  (replace the driver prefix only)
-    sync_db_url = database_url.replace(
-        "postgresql+asyncpg://", "postgresql+psycopg2://"
-    ).replace(
-        "postgresql+asyncpg:", "postgresql:"
-    )
-
     cutoff = datetime.now(timezone.utc) - timedelta(days=90)
     logger.info(
         "Running document cleanup — removing documents uploaded before %s",
@@ -36,22 +28,13 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
     )
 
     try:
-        from sqlalchemy import create_engine, select, delete, text
-        from sqlalchemy.orm import Session
-
-        # Use a synchronous engine here because APScheduler's AsyncIOScheduler
-        # runs the job in the event loop but the job itself is async —
-        # we use asyncpg-compatible async engine instead.
-        from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-
-        # Re-use the async URL directly
-        async_url = database_url
-        engine = create_async_engine(async_url, echo=False)
-        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
+        # Q2: reuse the shared AsyncSessionLocal instead of creating a new engine
+        # every time the job runs. This is the same pattern used by the routers.
+        from sqlalchemy import select
+        from app.database import AsyncSessionLocal
         from app.models.submission import Document
 
-        async with async_session() as session:
+        async with AsyncSessionLocal() as session:
             # Find all documents older than the cutoff date
             result = await session.execute(
                 select(Document).where(Document.uploaded_at < cutoff)
@@ -60,7 +43,6 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
 
             if not old_documents:
                 logger.info("Cleanup: no documents found older than 90 days")
-                await engine.dispose()
                 return
 
             deleted_count = 0
@@ -96,8 +78,6 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
                 deleted_count,
                 error_count,
             )
-
-        await engine.dispose()
 
     except Exception as exc:
         logger.error("Document cleanup job failed: %s", exc, exc_info=True)
