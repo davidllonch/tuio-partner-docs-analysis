@@ -116,6 +116,7 @@ export function TeamPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
+                  autoComplete="new-password"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>

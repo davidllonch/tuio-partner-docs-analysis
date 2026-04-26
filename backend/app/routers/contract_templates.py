@@ -11,13 +11,12 @@ from docx import Document as DocxDocument
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, field_validator
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.auth.jwt import get_current_analyst
+from app.auth.jwt import get_current_analyst, require_admin
+from app.utils.rate_limit import limiter as _limiter
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models.analyst import Analyst
@@ -29,10 +28,6 @@ from app.utils.file_utils import sanitize_filename
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["contract-templates"])
-
-# Rate limiter for public endpoints — limits how many PDF generations a single
-# IP address can request per hour, to prevent abuse.
-_limiter = Limiter(key_func=get_remote_address)
 
 # Contract templates are only available for these three provider types.
 # agencia_seguros is excluded because they use a different contract framework.
@@ -1219,12 +1214,12 @@ async def upload_template(
     entity_type: str,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_analyst: Analyst = Depends(get_current_analyst),
+    current_analyst: Analyst = Depends(require_admin),
     settings: Settings = Depends(get_settings),
 ):
     """
     Upload or replace the contract template DOCX for a given provider type
-    and entity type. Only DOCX files are accepted.
+    and entity type. Only DOCX files are accepted. Requires admin privileges.
     """
     if provider_type not in VALID_PROVIDER_TYPES:
         raise HTTPException(
@@ -1266,54 +1261,61 @@ async def upload_template(
     template_dir = _get_template_dir(settings.DOCUMENTS_BASE_PATH)
     file_path = os.path.join(template_dir, f"{provider_type}_{entity_type}.docx")
 
-    with open(file_path, "wb") as f:
-        f.write(content)
-
     safe_original = sanitize_filename(
         file.filename or f"{provider_type}_{entity_type}_contrato.docx"
     )
 
-    # Upsert in DB
-    result = await db.execute(
-        select(ContractTemplate).where(
-            ContractTemplate.provider_type == provider_type,
-            ContractTemplate.entity_type == entity_type,
+    try:
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        # Upsert in DB
+        result = await db.execute(
+            select(ContractTemplate).where(
+                ContractTemplate.provider_type == provider_type,
+                ContractTemplate.entity_type == entity_type,
+            )
         )
-    )
-    existing = result.scalar_one_or_none()
+        existing = result.scalar_one_or_none()
 
-    now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
 
-    if existing:
-        existing.file_path = file_path
-        existing.original_filename = safe_original
-        existing.uploaded_at = now
-        existing.uploaded_by_analyst_id = current_analyst.id
-        template_record = existing
-    else:
-        template_record = ContractTemplate(
-            id=uuid.uuid4(),
-            provider_type=provider_type,
-            entity_type=entity_type,
-            file_path=file_path,
-            original_filename=safe_original,
-            uploaded_at=now,
-            uploaded_by_analyst_id=current_analyst.id,
+        if existing:
+            existing.file_path = file_path
+            existing.original_filename = safe_original
+            existing.uploaded_at = now
+            existing.uploaded_by_analyst_id = current_analyst.id
+            template_record = existing
+        else:
+            template_record = ContractTemplate(
+                id=uuid.uuid4(),
+                provider_type=provider_type,
+                entity_type=entity_type,
+                file_path=file_path,
+                original_filename=safe_original,
+                uploaded_at=now,
+                uploaded_by_analyst_id=current_analyst.id,
+            )
+            db.add(template_record)
+
+        await log_audit(
+            db=db,
+            action="contract_template_uploaded",
+            analyst_id=current_analyst.id,
+            metadata={
+                "provider_type": provider_type,
+                "entity_type": entity_type,
+                "original_filename": safe_original,
+                "analyst_email": current_analyst.email,
+            },
         )
-        db.add(template_record)
+        await db.commit()
+    except Exception:
+        # Clean up the file if DB commit failed
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise
 
-    await log_audit(
-        db=db,
-        action="contract_template_uploaded",
-        analyst_id=current_analyst.id,
-        metadata={
-            "provider_type": provider_type,
-            "entity_type": entity_type,
-            "original_filename": safe_original,
-            "analyst_email": current_analyst.email,
-        },
-    )
-    await db.commit()
     await db.refresh(template_record, ["uploaded_by_analyst"])
 
     return ContractTemplateInfo(

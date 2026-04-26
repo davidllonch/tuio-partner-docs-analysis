@@ -100,6 +100,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     required
+                    autoComplete="current-password"
                     autoFocus
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
@@ -124,6 +125,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
+                    autoComplete="new-password"
                     placeholder="Minimum 8 characters"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder-gray-400"
                   />
@@ -147,6 +149,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  autoComplete="new-password"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>

@@ -49,17 +49,23 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
             error_count = 0
 
             for doc in old_documents:
-                # Delete the physical file from disk first
+                # Delete the physical file from disk first.
+                # Wrapped in asyncio.to_thread() so the synchronous filesystem
+                # calls don't block the async event loop while files are being deleted.
                 try:
-                    if os.path.exists(doc.file_path):
-                        os.remove(doc.file_path)
+                    file_exists = await asyncio.to_thread(os.path.exists, doc.file_path)
+                    if file_exists:
+                        await asyncio.to_thread(os.remove, doc.file_path)
                         logger.debug("Deleted file: %s", doc.file_path)
 
                     # If the parent directory (submission folder) is now empty, remove it
                     parent_dir = os.path.dirname(doc.file_path)
-                    if os.path.isdir(parent_dir) and not os.listdir(parent_dir):
-                        shutil.rmtree(parent_dir, ignore_errors=True)
-                        logger.debug("Removed empty directory: %s", parent_dir)
+                    dir_exists = await asyncio.to_thread(os.path.isdir, parent_dir)
+                    if dir_exists:
+                        dir_contents = await asyncio.to_thread(os.listdir, parent_dir)
+                        if not dir_contents:
+                            await asyncio.to_thread(shutil.rmtree, parent_dir, True)
+                            logger.debug("Removed empty directory: %s", parent_dir)
 
                 except OSError as exc:
                     logger.warning(

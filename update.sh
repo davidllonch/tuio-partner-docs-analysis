@@ -9,11 +9,14 @@ cd ~/kyc-app
 echo "[$(date)] Pulling latest code from GitHub..."
 git pull origin main
 
-echo "[$(date)] Rebuilding and restarting services..."
+echo "[$(date)] Rebuilding Docker images..."
 docker compose build
-docker compose up -d
 
-echo "[$(date)] Running any new database migrations..."
-docker compose exec -T backend alembic upgrade head
+echo "[$(date)] Applying database migrations..."
+# Stop the backend only (keep DB running), run migrations, then start everything
+docker compose stop backend
+docker compose up -d db
+docker compose run --rm -e PYTHONPATH=/app backend alembic upgrade head
+docker compose up -d
 
 echo "[$(date)] Update complete."

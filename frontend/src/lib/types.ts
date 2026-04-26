@@ -147,7 +147,6 @@ export interface InvitationCreateResponse extends InvitationListItem {
 }
 
 export interface InvitationPublic {
-  id: string
   provider_name: string
   provider_type: ProviderType
   entity_type: EntityType

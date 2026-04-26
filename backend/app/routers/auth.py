@@ -1,12 +1,11 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt import verify_password, hash_password, create_access_token, get_current_analyst
+from app.utils.rate_limit import limiter as _limiter
 from app.config import get_settings, Settings
 from app.database import get_db
 from app.models.analyst import Analyst
@@ -18,7 +17,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 # Rate limiter for the login endpoint — prevents brute-force password attacks.
 # Allows 10 login attempts per minute per IP address.
-_limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/login", response_model=TokenResponse)

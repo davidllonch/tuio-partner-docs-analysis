@@ -25,13 +25,12 @@ from fastapi import (
     status,
 )
 from fastapi.responses import Response, StreamingResponse
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth.jwt import get_current_analyst
+from app.utils.rate_limit import limiter as _limiter
 from app.config import Settings, get_settings
 from app.database import get_db, AsyncSessionLocal
 from app.models.analysis import Analysis
@@ -65,9 +64,6 @@ _PDF_ALLOWED_TAGS = {
     "table", "thead", "tbody", "tr", "th", "td",
     "hr", "blockquote", "code", "pre", "br",
 }
-
-# Module-level limiter for the public submission endpoint.
-_limiter = Limiter(key_func=get_remote_address)
 
 # File type allowlist — only these MIME types are accepted
 ALLOWED_MIME_TYPES = {
@@ -317,10 +313,24 @@ async def create_submission(
             detail="partner_info exceeds maximum length",
         )
 
+    if contract_data and len(contract_data) > 500_000:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="contract_data exceeds maximum length",
+        )
+
     if not files:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="At least one file is required",
+        )
+
+    MAX_FILES_PER_SUBMISSION = 50
+
+    if len(files) > MAX_FILES_PER_SUBMISSION:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Too many files. Maximum is {MAX_FILES_PER_SUBMISSION} per submission.",
         )
 
     if len(labels) != len(files):
