@@ -528,7 +528,9 @@ async def create_submission(
 
 
 @router.get("/models")
+@_limiter.limit("20/minute")
 async def list_models(
+    request: Request,
     current_analyst: Analyst = Depends(get_current_analyst),
     settings: Settings = Depends(get_settings),
 ):
@@ -641,6 +643,7 @@ async def download_document(
     doc_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_analyst: Analyst = Depends(get_current_analyst),
+    settings: Settings = Depends(get_settings),
 ):
     """
     Stream a document file to the analyst's browser.
@@ -660,7 +663,15 @@ async def download_document(
             detail="Document not found",
         )
 
-    if not os.path.exists(document.file_path):
+    # Defense-in-depth: reject paths that escaped the expected storage directory.
+    # document.file_path comes from the DB; a compromised DB row could point anywhere.
+    if not document.file_path.startswith(settings.DOCUMENTS_BASE_PATH):
+        logger.error(
+            "Document path outside base dir: %s (doc_id=%s)", document.file_path, doc_id
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    if not await asyncio.to_thread(os.path.exists, document.file_path):
         logger.error(
             "File not found on disk: %s (doc_id=%s)", document.file_path, doc_id
         )
@@ -682,10 +693,13 @@ async def download_document(
     )
     await db.commit()
 
-    def iter_file():
+    async def iter_file():
+        # Read in chunks inside a thread pool so disk I/O never blocks the event loop.
+        # A 20 MB file in 64 KB chunks takes ~320 iterations; each is offloaded to a thread.
+        loop = asyncio.get_event_loop()
         with open(document.file_path, "rb") as f:
             while True:
-                chunk = f.read(1024 * 64)
+                chunk = await loop.run_in_executor(None, f.read, 1024 * 64)
                 if not chunk:
                     break
                 yield chunk
@@ -721,10 +735,11 @@ async def delete_document(
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    # Delete file from disk (ignore if already gone)
+    # Delete file from disk (ignore if already gone). Both calls wrapped in
+    # asyncio.to_thread so sync filesystem ops don't block the event loop.
     try:
-        if os.path.exists(document.file_path):
-            os.remove(document.file_path)
+        if await asyncio.to_thread(os.path.exists, document.file_path):
+            await asyncio.to_thread(os.remove, document.file_path)
     except OSError as e:
         logger.warning("Could not delete file %s: %s", document.file_path, e)
 
@@ -762,6 +777,12 @@ async def add_document(
     submission = result.scalar_one_or_none()
     if submission is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
+
+    if len(label) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="label must not exceed 255 characters",
+        )
 
     # Validate MIME type
     if file.content_type not in ALLOWED_MIME_TYPES:

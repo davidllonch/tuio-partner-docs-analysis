@@ -21,6 +21,10 @@ services:
     restart: unless-stopped
     env_file: ./backend/.env
     environment:
+      # DB_PASSWORD_ENCODED must be the URL-encoded version of DB_PASSWORD.
+      # If the password contains special characters (e.g. @, #, /), encode them:
+      #   python3 -c "import urllib.parse; print(urllib.parse.quote_plus('your_password'))"
+      # Example: password "p@ss#1" → DB_PASSWORD_ENCODED="p%40ss%231"
       DATABASE_URL: postgresql+asyncpg://kyc_user:${DB_PASSWORD_ENCODED}@db:5432/kyc_db
     volumes:
       - kyc_documents:/data/documents

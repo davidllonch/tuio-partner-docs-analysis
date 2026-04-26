@@ -112,6 +112,8 @@ async def list_invitations(
 
     if page < 1:
         page = 1
+    if page > 10_000:
+        page = 10_000
     if size < 1 or size > 100:
         size = 20
 

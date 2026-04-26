@@ -56,8 +56,8 @@ def _validate_password_complexity(value: str) -> str:
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str = Field(min_length=8, description="Minimum 8 characters, with uppercase, lowercase and digit")
+    current_password: str = Field(max_length=128)
+    new_password: str = Field(min_length=8, max_length=128, description="Minimum 8 characters, with uppercase, lowercase and digit")
 
     @field_validator("new_password")
     @classmethod
@@ -68,7 +68,7 @@ class ChangePasswordRequest(BaseModel):
 class CreateAnalystRequest(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=8, description="Minimum 8 characters, with uppercase, lowercase and digit")
+    password: str = Field(min_length=8, max_length=128, description="Minimum 8 characters, with uppercase, lowercase and digit")
 
     @field_validator("password")
     @classmethod

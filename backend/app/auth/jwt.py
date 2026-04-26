@@ -37,9 +37,9 @@ def create_access_token(data: dict, secret: str, expire_hours: int, algorithm: s
     it proves who you are and when it expires.
     """
     payload = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(hours=expire_hours)
-    payload["exp"] = expire
-    payload["iat"] = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    payload["exp"] = now + timedelta(hours=expire_hours)
+    payload["iat"] = now
     token = jwt.encode(payload, secret, algorithm=algorithm)
     return token
 

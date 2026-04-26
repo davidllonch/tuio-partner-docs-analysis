@@ -51,7 +51,10 @@ async def lifespan(app: FastAPI):
 
     # Graceful shutdown — wait for in-progress jobs to finish
     if _scheduler and _scheduler.running:
-        _scheduler.shutdown(wait=False)
+        # wait=True gives in-flight jobs (e.g. the nightly cleanup) up to their
+        # natural completion before the process exits. This prevents a partial
+        # DB commit being rolled back mid-run on a clean shutdown signal.
+        _scheduler.shutdown(wait=True)
         logger.info("APScheduler stopped")
 
     logger.info("Application shutdown complete")

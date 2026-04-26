@@ -56,16 +56,6 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
                         if file_exists:
                             await asyncio.to_thread(os.remove, doc.file_path)
                             logger.debug("Deleted file: %s", doc.file_path)
-
-                        # If the parent directory (submission folder) is now empty, remove it
-                        parent_dir = os.path.dirname(doc.file_path)
-                        dir_exists = await asyncio.to_thread(os.path.isdir, parent_dir)
-                        if dir_exists:
-                            dir_contents = await asyncio.to_thread(os.listdir, parent_dir)
-                            if not dir_contents:
-                                await asyncio.to_thread(shutil.rmtree, parent_dir, True)
-                                logger.debug("Removed empty directory: %s", parent_dir)
-
                     except OSError as exc:
                         logger.warning(
                             "Could not delete file %s: %s", doc.file_path, exc
@@ -73,9 +63,23 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
                         error_count += 1
                         continue
 
-                    # Delete the database record
+                    # Delete DB record immediately after the file is gone.
+                    # Done before directory cleanup so a directory-cleanup OSError
+                    # does not leave an orphan DB record pointing to a missing file.
                     await session.delete(doc)
                     deleted_count += 1
+
+                    # If the parent directory is now empty, remove it
+                    try:
+                        parent_dir = os.path.dirname(doc.file_path)
+                        dir_exists = await asyncio.to_thread(os.path.isdir, parent_dir)
+                        if dir_exists:
+                            dir_contents = await asyncio.to_thread(os.listdir, parent_dir)
+                            if not dir_contents:
+                                await asyncio.to_thread(shutil.rmtree, parent_dir, True)
+                                logger.debug("Removed empty directory: %s", parent_dir)
+                    except OSError as exc:
+                        logger.warning("Could not remove directory: %s", exc)
 
                 await session.commit()
                 logger.info(

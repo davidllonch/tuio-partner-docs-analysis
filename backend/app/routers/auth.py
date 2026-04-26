@@ -47,18 +47,20 @@ async def login(
     )
 
     if analyst is None:
-        logger.warning("Login attempt for unknown email: %s", body.email)
+        # Generic message — avoids distinguishing "unknown email" from "wrong password"
+        # in logs, which would allow an attacker with log access to enumerate valid accounts.
+        logger.warning("Failed login attempt (no account): %s", body.email)
         raise invalid_credentials
 
     # Check is_active BEFORE verifying the password.
     # If we checked after, a correct password on an inactive account would return
     # a different error — revealing that the password is valid, which is an info leak.
     if not analyst.is_active:
-        logger.warning("Login attempt for inactive account: %s", body.email)
+        logger.warning("Failed login attempt (inactive): %s", body.email)
         raise invalid_credentials
 
     if not verify_password(body.password, analyst.hashed_password):
-        logger.warning("Failed login attempt for email: %s", body.email)
+        logger.warning("Failed login attempt (bad password): %s", body.email)
         raise invalid_credentials
 
     token = create_access_token(

@@ -1,5 +1,7 @@
+import asyncio
 import copy
 import io
+import json
 import logging
 import os
 import re
@@ -137,10 +139,11 @@ class AllTemplatesResponse(BaseModel):
 class GenerateRequest(BaseModel):
     partner_info: dict
 
-    # S12: prevent any single field value from being excessively long
     @field_validator("partner_info")
     @classmethod
     def validate_partner_info_values(cls, v):
+        if len(v) > 50:
+            raise ValueError("partner_info must not contain more than 50 keys")
         for key, val in v.items():
             if isinstance(val, str) and len(val) > 1000:
                 raise ValueError(f"Field '{key}' exceeds maximum length of 1000 characters")
@@ -163,15 +166,23 @@ class GenerateFullRequest(BaseModel):
     @field_validator("contract_data")
     @classmethod
     def validate_contract_data_size(cls, v):
-        import json
         if len(json.dumps(v)) > 100_000:
             raise ValueError("contract_data exceeds maximum allowed size")
+        commissions = v.get("commissions", [])
+        if len(commissions) > 100:
+            raise ValueError("commissions must not exceed 100 rows")
         return v
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _write_bytes_to_file(path: str, data: bytes) -> None:
+    """Synchronous file write — called via asyncio.to_thread to avoid blocking."""
+    with open(path, "wb") as f:
+        f.write(data)
 
 
 def _get_template_dir(documents_base_path: str) -> str:
@@ -1274,8 +1285,7 @@ async def upload_template(
     )
 
     try:
-        with open(file_path, "wb") as f:
-            f.write(content)
+        await asyncio.to_thread(_write_bytes_to_file, file_path, content)
 
         # Upsert in DB
         result = await db.execute(
