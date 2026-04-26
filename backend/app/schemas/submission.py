@@ -92,8 +92,21 @@ class ReanalyseRequest(BaseModel):
     @field_validator("model")
     @classmethod
     def validate_model_name(cls, v):
-        if v is not None and not (v.startswith("claude-") or v.startswith("gpt-")):
-            raise ValueError("model must start with 'claude-' or 'gpt-'")
+        if v is None:
+            return v
+        # Explicit allowlist — prevents arbitrary model strings being forwarded to the AI API
+        valid_models = {
+            "claude-opus-4-7",
+            "claude-sonnet-4-6",
+            "claude-haiku-4-5-20251001",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4-turbo",
+        }
+        if v not in valid_models:
+            raise ValueError(
+                f"model must be one of: {', '.join(sorted(valid_models))}"
+            )
         return v
 
 

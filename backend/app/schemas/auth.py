@@ -6,7 +6,9 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 class LoginRequest(BaseModel):
     email: EmailStr  # Q5: validate email format before attempting DB lookup
-    password: str
+    # max_length prevents sending enormous strings to bcrypt (bcrypt truncates at 72 bytes
+    # but still allocates memory for the full string before doing so)
+    password: str = Field(max_length=128)
 
 
 class AnalystOut(BaseModel):

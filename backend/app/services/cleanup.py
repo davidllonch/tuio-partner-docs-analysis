@@ -43,47 +43,80 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
 
             if not old_documents:
                 logger.info("Cleanup: no documents found older than 90 days")
-                return
+            else:
+                deleted_count = 0
+                error_count = 0
 
-            deleted_count = 0
-            error_count = 0
+                for doc in old_documents:
+                    # Delete the physical file from disk first.
+                    # Wrapped in asyncio.to_thread() so the synchronous filesystem
+                    # calls don't block the async event loop while files are being deleted.
+                    try:
+                        file_exists = await asyncio.to_thread(os.path.exists, doc.file_path)
+                        if file_exists:
+                            await asyncio.to_thread(os.remove, doc.file_path)
+                            logger.debug("Deleted file: %s", doc.file_path)
 
-            for doc in old_documents:
-                # Delete the physical file from disk first.
-                # Wrapped in asyncio.to_thread() so the synchronous filesystem
-                # calls don't block the async event loop while files are being deleted.
-                try:
-                    file_exists = await asyncio.to_thread(os.path.exists, doc.file_path)
-                    if file_exists:
-                        await asyncio.to_thread(os.remove, doc.file_path)
-                        logger.debug("Deleted file: %s", doc.file_path)
+                        # If the parent directory (submission folder) is now empty, remove it
+                        parent_dir = os.path.dirname(doc.file_path)
+                        dir_exists = await asyncio.to_thread(os.path.isdir, parent_dir)
+                        if dir_exists:
+                            dir_contents = await asyncio.to_thread(os.listdir, parent_dir)
+                            if not dir_contents:
+                                await asyncio.to_thread(shutil.rmtree, parent_dir, True)
+                                logger.debug("Removed empty directory: %s", parent_dir)
 
-                    # If the parent directory (submission folder) is now empty, remove it
-                    parent_dir = os.path.dirname(doc.file_path)
-                    dir_exists = await asyncio.to_thread(os.path.isdir, parent_dir)
-                    if dir_exists:
-                        dir_contents = await asyncio.to_thread(os.listdir, parent_dir)
-                        if not dir_contents:
-                            await asyncio.to_thread(shutil.rmtree, parent_dir, True)
-                            logger.debug("Removed empty directory: %s", parent_dir)
+                    except OSError as exc:
+                        logger.warning(
+                            "Could not delete file %s: %s", doc.file_path, exc
+                        )
+                        error_count += 1
+                        continue
 
-                except OSError as exc:
-                    logger.warning(
-                        "Could not delete file %s: %s", doc.file_path, exc
-                    )
-                    error_count += 1
-                    continue
+                    # Delete the database record
+                    await session.delete(doc)
+                    deleted_count += 1
 
-                # Delete the database record
-                await session.delete(doc)
-                deleted_count += 1
+                await session.commit()
+                logger.info(
+                    "Cleanup complete: %d documents deleted, %d errors",
+                    deleted_count,
+                    error_count,
+                )
 
-            await session.commit()
-            logger.info(
-                "Cleanup complete: %d documents deleted, %d errors",
-                deleted_count,
-                error_count,
+            # GDPR data minimisation: anonymise personal data from submissions older
+            # than 90 days that have no remaining documents.
+            # partner_info and contract_data contain NIF, addresses, and other PII.
+            from sqlalchemy import func
+            from app.models.submission import Submission
+
+            subs_result = await session.execute(
+                select(Submission).where(
+                    Submission.created_at < cutoff,
+                    Submission.partner_info.isnot(None),
+                )
             )
+            old_submissions = subs_result.scalars().all()
+
+            anonymized_count = 0
+            for sub in old_submissions:
+                docs_count_result = await session.execute(
+                    select(func.count()).select_from(Document).where(
+                        Document.submission_id == sub.id
+                    )
+                )
+                if docs_count_result.scalar() == 0:
+                    sub.partner_info = None
+                    sub.contract_data = None
+                    sub.ai_response = None
+                    anonymized_count += 1
+
+            if anonymized_count:
+                await session.commit()
+                logger.info(
+                    "GDPR cleanup: anonymised personal data from %d old submissions",
+                    anonymized_count,
+                )
 
     except Exception as exc:
         logger.error("Document cleanup job failed: %s", exc, exc_info=True)

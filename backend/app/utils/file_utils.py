@@ -1,5 +1,6 @@
 import os
 import re
+from urllib.parse import quote
 
 
 def sanitize_filename(filename: str, fallback: str = "file") -> str:
@@ -14,3 +15,19 @@ def sanitize_filename(filename: str, fallback: str = "file") -> str:
     if not filename:
         filename = fallback
     return filename
+
+
+def content_disposition_filename(filename: str) -> str:
+    """
+    Build a safe Content-Disposition header value with RFC 5987 encoding.
+
+    Uses two fields:
+    - filename="..."  ASCII fallback for old clients (non-ASCII chars replaced with _)
+    - filename*=UTF-8''... percent-encoded for modern clients (full Unicode support)
+
+    This prevents header injection: control characters (including \\r\\n) are
+    percent-encoded so they can never split or inject extra HTTP headers.
+    """
+    ascii_fallback = re.sub(r"[^\x20-\x7E]", "_", filename).replace('"', "_")
+    encoded = quote(filename, safe="")
+    return f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{encoded}'

@@ -3,9 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.config import get_settings
 from app.routers import auth as auth_router
@@ -15,6 +14,7 @@ from app.routers import invitations as invitations_router
 from app.routers import declaration_templates as declaration_templates_router
 from app.routers import contract_templates as contract_templates_router
 from app.services.cleanup import create_cleanup_scheduler
+from app.utils.rate_limit import limiter
 
 # Configure structured logging for the entire application
 logging.basicConfig(
@@ -23,11 +23,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
-# Rate limiter — controls how many requests a single IP can make per hour.
-# Think of it like a doorman who checks how many times someone has already
-# come in tonight before letting them through again.
-limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 # Store the scheduler at module level so we can stop it cleanly on shutdown
 _scheduler = None

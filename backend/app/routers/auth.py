@@ -62,7 +62,7 @@ async def login(
         raise invalid_credentials
 
     token = create_access_token(
-        data={"sub": str(analyst.id)},
+        data={"sub": str(analyst.id), "token_ver": analyst.token_version},
         secret=settings.JWT_SECRET_KEY,
         expire_hours=settings.JWT_EXPIRE_HOURS,
         algorithm=settings.JWT_ALGORITHM,
@@ -102,5 +102,8 @@ async def change_password(
         )
 
     current_analyst.hashed_password = hash_password(body.new_password)
+    # Invalidate all existing tokens by bumping the version counter.
+    # Any JWT issued before this change will have an old token_ver and will be rejected.
+    current_analyst.token_version = (current_analyst.token_version or 0) + 1
     await db.commit()
     logger.info("Analyst %s changed their password", current_analyst.email)

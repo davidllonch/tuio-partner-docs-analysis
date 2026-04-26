@@ -2,6 +2,7 @@ import asyncio
 import html
 import logging
 import smtplib
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -23,9 +24,12 @@ def _send_smtp(
     Synchronous SMTP send. Runs in a thread pool via asyncio.to_thread()
     so it does not block the async event loop.
     """
+    # Use the system's trusted CA bundle to verify the SMTP server certificate.
+    # Without this, a network attacker could intercept SMTP credentials via MITM.
+    tls_context = ssl.create_default_context()
     with smtplib.SMTP(smtp_host, smtp_port) as server:
         server.ehlo()
-        server.starttls()
+        server.starttls(context=tls_context)
         server.login(smtp_user, smtp_password)
         server.sendmail(from_address, [recipient], msg_string)
 

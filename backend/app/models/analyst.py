@@ -22,6 +22,9 @@ class Analyst(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Incremented on every password change. The current value is embedded in the JWT
+    # so that old tokens are rejected immediately after a password change.
+    token_version: Mapped[int] = mapped_column(default=0, nullable=False)
 
     # Relationships
     analyses: Mapped[List["Analysis"]] = relationship(

@@ -91,6 +91,13 @@ async def get_current_analyst(
             detail="Analyst account is inactive",
         )
 
+    # Reject tokens issued before the last password change.
+    # If the account is compromised and the owner changes their password, all
+    # existing tokens (including the attacker's) stop working immediately.
+    token_ver = payload.get("token_ver")
+    if token_ver is None or token_ver != analyst.token_version:
+        raise credentials_exception
+
     return analyst
 
 

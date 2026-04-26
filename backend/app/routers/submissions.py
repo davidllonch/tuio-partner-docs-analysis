@@ -38,7 +38,8 @@ from app.models.analyst import Analyst
 from app.models.invitation import Invitation
 from app.models.submission import Document, Submission
 from app.utils.audit import log_audit
-from app.utils.file_utils import sanitize_filename
+from app.utils.file_utils import sanitize_filename, content_disposition_filename
+from app.services.ai_analysis import run_analysis, DEFAULT_MODEL
 from app.schemas.submission import (
     ReanalyseRequest,
     ReanalyseResponse,
@@ -47,7 +48,6 @@ from app.schemas.submission import (
     VALID_ENTITY_TYPES,
     VALID_PROVIDER_TYPES,
 )
-from app.services.ai_analysis import run_analysis
 from app.services.email_service import send_submission_notification
 from app.services.extraction import extract_documents
 
@@ -229,7 +229,6 @@ async def _background_analyse(
                     # server logs only. We never expose internal error strings to
                     # the database or the frontend.
                     submission.error_message = "Analysis failed. Please check server logs for details."
-                    logger.error("Analysis error for submission %s: %s", submission_id, exc, exc_info=True)
                     await db.commit()
             except Exception as db_exc:
                 logger.error("Could not save error state for submission %s: %s", submission_id, db_exc)
@@ -339,6 +338,13 @@ async def create_submission(
             detail=f"Number of labels ({len(labels)}) must match number of files ({len(files)})",
         )
 
+    for label in labels:
+        if len(label) > 255:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Each label must not exceed 255 characters",
+            )
+
     # Validate each file's MIME type and size
     file_sizes: list[int] = []
     for i, upload_file in enumerate(files):
@@ -432,7 +438,7 @@ async def create_submission(
     # ── 3. Create storage directory ──────────────────────────────────────────
 
     submission_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, str(submission_id))
-    os.makedirs(submission_dir, exist_ok=True)
+    await asyncio.to_thread(os.makedirs, submission_dir, exist_ok=True)
 
     # ── 4. Save files to disk + create Document records ──────────────────────
 
@@ -443,7 +449,7 @@ async def create_submission(
         safe_filename = sanitize_filename(upload_file.filename or f"document_{i}")
         file_path = os.path.join(submission_dir, safe_filename)
 
-        if os.path.exists(file_path):
+        if await asyncio.to_thread(os.path.exists, file_path):
             name, ext = os.path.splitext(safe_filename)
             safe_filename = f"{name}_{i}{ext}"
             file_path = os.path.join(submission_dir, safe_filename)
@@ -688,9 +694,7 @@ async def download_document(
         iter_file(),
         media_type=document.mime_type,
         headers={
-            "Content-Disposition": (
-                f'attachment; filename="{document.original_filename.replace(chr(34), "_")}"'
-            ),
+            "Content-Disposition": content_disposition_filename(document.original_filename),
             "Content-Length": str(document.size_bytes),
         },
     )
@@ -785,7 +789,7 @@ async def add_document(
 
     # Save to disk
     submission_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, str(submission_id))
-    os.makedirs(submission_dir, exist_ok=True)
+    await asyncio.to_thread(os.makedirs, submission_dir, exist_ok=True)
 
     safe_filename = sanitize_filename(file.filename or "document")
     file_path = os.path.join(submission_dir, safe_filename)
@@ -896,7 +900,7 @@ async def reanalyse_submission(
             extracted_docs=extracted_docs,
             anthropic_api_key=settings.ANTHROPIC_API_KEY,
             openai_api_key=settings.OPENAI_API_KEY,
-            model=body.model or "claude-sonnet-4-6",
+            model=body.model or DEFAULT_MODEL,
         )
 
         analysis_id = uuid.uuid4()
@@ -1057,9 +1061,14 @@ async def download_report_pdf(
 </body>
 </html>"""
 
-    # Run weasyprint in a thread pool — it's synchronous and would block the event loop
+    # Run weasyprint in a thread pool — it's synchronous and would block the event loop.
+    # The no-op url_fetcher blocks all external resource fetches (fonts, images via CSS url())
+    # preventing weasyprint from making outbound network requests based on AI-generated content.
+    def _no_fetch(url, timeout=10, ssl_context=None):
+        return {"string": b"", "mime_type": "text/plain"}
+
     pdf_bytes = await asyncio.to_thread(
-        lambda: weasyprint.HTML(string=full_html).write_pdf()
+        lambda: weasyprint.HTML(string=full_html, url_fetcher=_no_fetch).write_pdf()
     )
 
     # Build a strictly ASCII-only filename (C2).

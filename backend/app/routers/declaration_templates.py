@@ -21,7 +21,7 @@ from app.models.analyst import Analyst
 from app.models.declaration_template import DeclarationTemplate
 from app.utils.audit import log_audit
 from app.utils.docx_utils import convert_docx_to_pdf_via_libreoffice
-from app.utils.file_utils import sanitize_filename
+from app.utils.file_utils import sanitize_filename, content_disposition_filename
 
 logger = logging.getLogger(__name__)
 
@@ -357,7 +357,7 @@ async def download_template(
         media_type=DOCX_MIME_TYPE,
         filename=template.original_filename,
         headers={
-            "Content-Disposition": f'attachment; filename="{template.original_filename}"'
+            "Content-Disposition": content_disposition_filename(template.original_filename),
         },
     )
 
