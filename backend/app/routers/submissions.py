@@ -339,6 +339,18 @@ async def create_submission(
             detail="provider_name must not exceed 255 characters",
         )
 
+    if not_applicable_slots and len(not_applicable_slots) > 100_000:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="not_applicable_slots exceeds maximum length",
+        )
+
+    if partner_info and len(partner_info) > 100_000:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="partner_info exceeds maximum length",
+        )
+
     if not files:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -498,13 +510,16 @@ async def create_submission(
     # ── 5. Commit to DB and schedule background analysis ─────────────────────
 
     submission.status = "analysing"
-    await db.commit()
 
-    # Mark invitation as used (atomic with the submission commit above)
+    # Mark invitation as used in the same transaction as the submission commit.
+    # A single db.commit() means both changes succeed or both fail together —
+    # there is no window where the submission exists but the invitation is still
+    # marked as "pending".
     if invitation:
         invitation.status = "submitted"
         invitation.submission_id = submission_id
-        await db.commit()
+
+    await db.commit()
 
     # Schedule AI analysis + email as a background task.
     # The partner receives a success response immediately — no waiting.
@@ -541,9 +556,11 @@ async def list_models(
     """
     import anthropic as anthropic_lib
 
-    client = anthropic_lib.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    # Use the async client so this endpoint does not block the event loop
+    # while waiting for the network response from Anthropic.
+    client = anthropic_lib.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
     try:
-        models_page = client.models.list()
+        models_page = await client.models.list(limit=20)
         claude_models = [
             {
                 "id": m.id,

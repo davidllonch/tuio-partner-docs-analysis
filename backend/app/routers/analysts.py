@@ -32,7 +32,7 @@ async def create_analyst(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Create a new analyst account. Any authenticated analyst can do this.
+    Create a new analyst account. Only admin analysts can create new analyst accounts.
     Returns HTTP 409 if the email is already registered.
     """
     result = await db.execute(select(Analyst).where(Analyst.email == body.email))

@@ -52,7 +52,9 @@ async def send_submission_notification(
     # Escape user-supplied values before embedding in HTML to prevent injection
     safe_name = html.escape(provider_name)
     safe_display = html.escape(provider_display)
-    safe_subject_name = provider_name[:200]  # cap subject line length
+    # Strip newlines to prevent email header injection — a malicious provider name
+    # containing "\r\n" could otherwise inject extra headers into the email envelope.
+    safe_subject_name = provider_name.replace("\r", "").replace("\n", "").strip()[:200]
 
     subject = f"Nueva documentación recibida – {safe_subject_name}"
 

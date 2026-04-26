@@ -1341,6 +1341,14 @@ async def upload_template(
             detail="File exceeds the 20 MB size limit",
         )
 
+    # Verify the file is actually a DOCX/ZIP (magic bytes: PK\x03\x04).
+    # This prevents someone from uploading a non-DOCX file with a .docx extension.
+    if content[:4] != b"PK\x03\x04":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="File content is not a valid DOCX document",
+        )
+
     # Save to disk — fixed path: contract_templates/{provider_type}_{entity_type}.docx
     template_dir = _get_template_dir(settings.DOCUMENTS_BASE_PATH)
     file_path = os.path.join(template_dir, f"{provider_type}_{entity_type}.docx")

@@ -89,6 +89,13 @@ class ReanalyseRequest(BaseModel):
             )
         return v
 
+    @field_validator("model")
+    @classmethod
+    def validate_model_name(cls, v):
+        if v is not None and not (v.startswith("claude-") or v.startswith("gpt-")):
+            raise ValueError("model must start with 'claude-' or 'gpt-'")
+        return v
+
 
 class ReanalyseResponse(BaseModel):
     status: str
