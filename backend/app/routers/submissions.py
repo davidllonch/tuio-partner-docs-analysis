@@ -712,23 +712,19 @@ async def download_document(
     )
     await db.commit()
 
-    async def iter_file():
-        # Read in chunks inside a thread pool so disk I/O never blocks the event loop.
-        # A 20 MB file in 64 KB chunks takes ~320 iterations; each is offloaded to a thread.
-        loop = asyncio.get_event_loop()
-        with open(document.file_path, "rb") as f:
-            while True:
-                chunk = await loop.run_in_executor(None, f.read, 1024 * 64)
-                if not chunk:
-                    break
-                yield chunk
+    # Files are capped at 20 MB so reading the whole file in one thread call is safe.
+    # This avoids the sync open() that the chunked generator approach requires on the
+    # event loop, and ensures the file handle is closed promptly regardless of client behaviour.
+    file_bytes = await asyncio.to_thread(
+        lambda: open(document.file_path, "rb").read()  # noqa: WPS515 — lambda needed for to_thread
+    )
 
-    return StreamingResponse(
-        iter_file(),
+    return Response(
+        content=file_bytes,
         media_type=document.mime_type,
         headers={
             "Content-Disposition": content_disposition_filename(document.original_filename),
-            "Content-Length": str(document.size_bytes),
+            "Content-Length": str(len(file_bytes)),
         },
     )
 
@@ -1049,7 +1045,9 @@ async def update_contract_data(
 # ── PDF Report Download ───────────────────────────────────────────────────────
 
 @router.get("/submissions/{submission_id}/report.pdf")
+@_limiter.limit("30/hour")
 async def download_report_pdf(
+    request: Request,
     submission_id: uuid.UUID,
     current_analyst: Analyst = Depends(get_current_analyst),
     db: AsyncSession = Depends(get_db),
@@ -1128,6 +1126,12 @@ async def download_report_pdf(
     pdf_bytes = await asyncio.to_thread(
         lambda: weasyprint.HTML(string=full_html, url_fetcher=_no_fetch).write_pdf()
     )
+
+    if len(pdf_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Generated PDF exceeds the 50 MB size limit",
+        )
 
     # Build a strictly ASCII-only filename (C2).
     # re.ASCII ensures \w only matches [a-zA-Z0-9_], excluding any Unicode letters.

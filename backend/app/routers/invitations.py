@@ -162,6 +162,11 @@ async def get_invitation_by_token(
     Rate limited to prevent token brute-forcing.
     Returns only non-sensitive fields — no token, no analyst details.
     """
+    # Tokens are always 64 hex chars (secrets.token_hex(32)).
+    # Reject obviously malformed strings before hitting the database.
+    if len(token) != 64 or not token.isalnum():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+
     result = await db.execute(
         select(Invitation).where(Invitation.token == token)
     )
@@ -175,14 +180,10 @@ async def get_invitation_by_token(
         invitation.status = "expired"
         await db.commit()
 
-    if invitation.status == "submitted":
-        raise HTTPException(status_code=status.HTTP_410_GONE, detail="already_used")
-
-    if invitation.status == "expired":
-        raise HTTPException(status_code=status.HTTP_410_GONE, detail="expired")
-
-    if invitation.status == "cancelled":
-        raise HTTPException(status_code=status.HTTP_410_GONE, detail="cancelled")
+    # Return the same 404 for all non-usable states so probing random tokens
+    # cannot distinguish "never existed" from "used/expired/cancelled".
+    if invitation.status in ("submitted", "expired", "cancelled"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
 
     return invitation
 

@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime
 from typing import Optional, List
@@ -94,18 +95,14 @@ class ReanalyseRequest(BaseModel):
     def validate_model_name(cls, v):
         if v is None:
             return v
-        # Explicit allowlist — prevents arbitrary model strings being forwarded to the AI API
-        valid_models = {
-            "claude-opus-4-7",
-            "claude-sonnet-4-6",
-            "claude-haiku-4-5-20251001",
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4-turbo",
-        }
-        if v not in valid_models:
+        # Pattern-based validation instead of a static allowlist so new Claude/GPT model
+        # releases (e.g. claude-sonnet-4-7, gpt-4o-2025-xx) work without code changes.
+        # Accepts: claude-<alphanumeric+dash+dot> or gpt-<alphanumeric+dash+dot>
+        # Max 80 chars to prevent oversized strings reaching the AI API.
+        if not re.fullmatch(r"(claude|gpt)-[\w.\-]{1,75}", v):
             raise ValueError(
-                f"model must be one of: {', '.join(sorted(valid_models))}"
+                "model must be a valid Claude or GPT model name "
+                "(e.g. claude-sonnet-4-6, gpt-4o)"
             )
         return v
 

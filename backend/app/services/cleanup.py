@@ -125,6 +125,9 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
                     sub.partner_info = None
                     sub.contract_data = None
                     sub.ai_response = None
+                    # provider_name is the person's full name for "Persona Física" submissions —
+                    # it must also be anonymised to comply with GDPR data minimisation.
+                    sub.provider_name = "Anonymised"
                     anonymized_count += 1
 
             if anonymized_count:

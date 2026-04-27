@@ -1198,9 +1198,9 @@ async def get_placeholder_context(
         return {"context": {}}
 
     try:
-        doc = DocxDocument(template.file_path)
+        doc = await asyncio.to_thread(DocxDocument, template.file_path)
         context: dict[str, str] = {}
-        actividad_ctx = _extract_placeholder_context(doc, "[ACTIVIDAD]")
+        actividad_ctx = await asyncio.to_thread(_extract_placeholder_context, doc, "[ACTIVIDAD]")
         if actividad_ctx:
             context["ACTIVIDAD"] = actividad_ctx
         return {"context": context}
@@ -1243,8 +1243,8 @@ async def get_si_no_fields(
         return {"fields": []}
 
     try:
-        doc = DocxDocument(template.file_path)
-        fields = _extract_si_no_fields(doc)
+        doc = await asyncio.to_thread(DocxDocument, template.file_path)
+        fields = await asyncio.to_thread(_extract_si_no_fields, doc)
         return {"fields": fields}
     except Exception as exc:
         logger.error("Error extracting SI/NO fields: %s", exc)

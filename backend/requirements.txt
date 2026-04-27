@@ -6,7 +6,7 @@ asyncpg==0.30.*
 psycopg2-binary==2.9.*
 PyJWT>=2.8,<3.0
 passlib[bcrypt]==1.7.*
-bcrypt==4.*
+bcrypt>=3.2,<4.1
 anthropic>=0.50.0,<1.0.0
 openai==1.58.*
 PyMuPDF==1.25.*
