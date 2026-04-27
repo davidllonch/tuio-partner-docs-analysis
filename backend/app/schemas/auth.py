@@ -6,9 +6,10 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 class LoginRequest(BaseModel):
     email: EmailStr  # Q5: validate email format before attempting DB lookup
-    # max_length prevents sending enormous strings to bcrypt (bcrypt truncates at 72 bytes
-    # but still allocates memory for the full string before doing so)
-    password: str = Field(max_length=128)
+    # bcrypt silently truncates input at 72 bytes — characters beyond that have no effect
+    # on the resulting hash. We cap at 72 to match bcrypt's actual behaviour and avoid
+    # users believing long passwords beyond 72 chars add security.
+    password: str = Field(max_length=72)
 
 
 class AnalystOut(BaseModel):
@@ -56,8 +57,8 @@ def _validate_password_complexity(value: str) -> str:
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str = Field(max_length=128)
-    new_password: str = Field(min_length=8, max_length=128, description="Minimum 8 characters, with uppercase, lowercase and digit")
+    current_password: str = Field(max_length=72)
+    new_password: str = Field(min_length=8, max_length=72, description="Minimum 8 characters, with uppercase, lowercase and digit")
 
     @field_validator("new_password")
     @classmethod
@@ -68,7 +69,7 @@ class ChangePasswordRequest(BaseModel):
 class CreateAnalystRequest(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=8, max_length=128, description="Minimum 8 characters, with uppercase, lowercase and digit")
+    password: str = Field(min_length=8, max_length=72, description="Minimum 8 characters, with uppercase, lowercase and digit")
 
     @field_validator("password")
     @classmethod

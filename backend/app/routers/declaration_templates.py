@@ -8,7 +8,7 @@ from typing import Optional
 
 from docx import Document as DocxDocument
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -294,7 +294,9 @@ async def list_all_templates(
 
 
 @router.get("/declaration-templates/{provider_type}/{entity_type}")
+@_limiter.limit("60/minute")
 async def get_template_info(
+    request: Request,
     provider_type: str,
     entity_type: str,
     db: AsyncSession = Depends(get_db),
@@ -392,10 +394,15 @@ async def download_template(
             detail="Template file not found on disk",
         )
 
-    return FileResponse(
-        path=real_path,
+    # Read file in thread + return plain Response to avoid FileResponse's sync I/O on event loop.
+    def _read_template() -> bytes:
+        with open(real_path, "rb") as f:
+            return f.read()
+
+    file_bytes = await asyncio.to_thread(_read_template)
+    return Response(
+        content=file_bytes,
         media_type=DOCX_MIME_TYPE,
-        filename=template.original_filename,
         headers={
             "Content-Disposition": content_disposition_filename(template.original_filename),
         },

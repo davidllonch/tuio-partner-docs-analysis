@@ -380,6 +380,12 @@ async def create_submission(
     # ── 1b. If invitation_token provided, validate and load invitation data ───
     invitation: Optional[Invitation] = None
     if invitation_token:
+        # Tokens are always 64 hex chars — reject malformed strings before hitting the DB.
+        if len(invitation_token) != 64 or not invitation_token.isalnum():
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="Invitation not found or has expired",
+            )
         # S13: use .with_for_update() to lock the row during the transaction,
         # preventing two simultaneous requests from both passing the same token.
         inv_result = await db.execute(
@@ -527,21 +533,9 @@ async def create_submission(
 # ---------------------------------------------------------------------------
 
 
-_anthropic_client = None
-
-
-def _get_anthropic_client(api_key: str):
-    """Return a module-level cached AsyncAnthropic client.
-
-    Using a module-level variable instead of @lru_cache avoids storing the API
-    key as a dict key inside the lru_cache internals, which could expose it in
-    tracebacks or memory dumps.
-    """
-    global _anthropic_client
-    if _anthropic_client is None:
-        import anthropic as anthropic_lib
-        _anthropic_client = anthropic_lib.AsyncAnthropic(api_key=api_key)
-    return _anthropic_client
+# Import the shared cached client from ai_analysis to avoid maintaining two
+# separate Anthropic connection pools for the same API key.
+from app.services.ai_analysis import _get_anthropic_client
 
 
 @router.get("/models")
@@ -713,11 +707,13 @@ async def download_document(
     await db.commit()
 
     # Files are capped at 20 MB so reading the whole file in one thread call is safe.
-    # This avoids the sync open() that the chunked generator approach requires on the
-    # event loop, and ensures the file handle is closed promptly regardless of client behaviour.
-    file_bytes = await asyncio.to_thread(
-        lambda: open(document.file_path, "rb").read()  # noqa: WPS515 — lambda needed for to_thread
-    )
+    # This avoids a sync open() on the event loop and ensures the file handle is always
+    # closed via the context manager regardless of errors or client behaviour.
+    def _read_doc_file() -> bytes:
+        with open(document.file_path, "rb") as f:
+            return f.read()
+
+    file_bytes = await asyncio.to_thread(_read_doc_file)
 
     return Response(
         content=file_bytes,

@@ -11,7 +11,7 @@ from typing import Optional
 
 from docx import Document as DocxDocument
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -232,13 +232,15 @@ def _fuzzy_sub(pattern_text: str, replacement: str, subject: str) -> str:
     if all(ord(ch) < 128 for ch in pattern_text):
         return subject.replace(pattern_text, replacement)
 
-    # Build regex where each non-ASCII char also accepts U+FFFD
+    # Build regex where each non-ASCII char also accepts U+FFFD.
+    # Use a character class [X�] instead of alternation (?:X|�) —
+    # character classes have no backtracking, preventing ReDoS on crafted input.
     parts = []
     for ch in pattern_text:
         if ch == _REPL:
             parts.append(".")
         elif ord(ch) > 127:
-            parts.append(f"(?:{re.escape(ch)}|{re.escape(_REPL)})")
+            parts.append(f"[{re.escape(ch)}{re.escape(_REPL)}]")
         else:
             parts.append(re.escape(ch))
     pat = re.compile("".join(parts))
@@ -843,7 +845,9 @@ async def list_all_templates(
 
 
 @router.get("/contract-templates/{provider_type}/{entity_type}")
+@_limiter.limit("60/minute")
 async def get_template_info(
+    request: Request,
     provider_type: str,
     entity_type: str,
     db: AsyncSession = Depends(get_db),
@@ -941,10 +945,15 @@ async def download_template(
             detail="Template file not found on disk",
         )
 
-    return FileResponse(
-        path=real_path,
+    # Read file in thread + return plain Response to avoid FileResponse's sync I/O on event loop.
+    def _read_template() -> bytes:
+        with open(real_path, "rb") as f:
+            return f.read()
+
+    file_bytes = await asyncio.to_thread(_read_template)
+    return Response(
+        content=file_bytes,
         media_type=DOCX_MIME_TYPE,
-        filename=template.original_filename,
         headers={
             "Content-Disposition": content_disposition_filename(template.original_filename),
         },
@@ -1194,11 +1203,20 @@ async def get_placeholder_context(
         )
     )
     template = result.scalar_one_or_none()
-    if template is None or not await asyncio.to_thread(os.path.exists, template.file_path):
+    if template is None:
+        return {"context": {}}
+
+    ctx_template_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, "contract_templates")
+    ctx_real_path = os.path.realpath(template.file_path)
+    if not ctx_real_path.startswith(os.path.realpath(ctx_template_dir) + os.sep):
+        logger.error("Contract template path escapes base dir: %s", template.file_path)
+        return {"context": {}}
+
+    if not await asyncio.to_thread(os.path.exists, ctx_real_path):
         return {"context": {}}
 
     try:
-        doc = await asyncio.to_thread(DocxDocument, template.file_path)
+        doc = await asyncio.to_thread(DocxDocument, ctx_real_path)
         context: dict[str, str] = {}
         actividad_ctx = await asyncio.to_thread(_extract_placeholder_context, doc, "[ACTIVIDAD]")
         if actividad_ctx:
@@ -1239,11 +1257,20 @@ async def get_si_no_fields(
         )
     )
     template = result.scalar_one_or_none()
-    if template is None or not await asyncio.to_thread(os.path.exists, template.file_path):
+    if template is None:
+        return {"fields": []}
+
+    sn_template_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, "contract_templates")
+    sn_real_path = os.path.realpath(template.file_path)
+    if not sn_real_path.startswith(os.path.realpath(sn_template_dir) + os.sep):
+        logger.error("Contract template path escapes base dir: %s", template.file_path)
+        return {"fields": []}
+
+    if not await asyncio.to_thread(os.path.exists, sn_real_path):
         return {"fields": []}
 
     try:
-        doc = await asyncio.to_thread(DocxDocument, template.file_path)
+        doc = await asyncio.to_thread(DocxDocument, sn_real_path)
         fields = await asyncio.to_thread(_extract_si_no_fields, doc)
         return {"fields": fields}
     except Exception as exc:

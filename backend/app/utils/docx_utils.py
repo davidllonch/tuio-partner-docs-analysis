@@ -25,10 +25,19 @@ async def convert_docx_to_pdf_via_libreoffice(docx_bytes: bytes) -> bytes:
     CPU-heavy and starting too many in parallel would exhaust server resources.
     """
     async with _LIBREOFFICE_SEMAPHORE:
-        with tempfile.TemporaryDirectory() as tmpdir:
+        # Manage the temp dir manually so cleanup can be offloaded to a thread,
+        # avoiding a synchronous rmtree() on the event loop when the context exits.
+        tmpdir_obj = tempfile.TemporaryDirectory()
+        try:
+            tmpdir = tmpdir_obj.name
             docx_path = os.path.join(tmpdir, "document.docx")
-            with open(docx_path, "wb") as fh:
-                fh.write(docx_bytes)
+
+            # Write DOCX bytes in a thread — avoids blocking the event loop on disk I/O.
+            def _write_docx() -> None:
+                with open(docx_path, "wb") as fh:
+                    fh.write(docx_bytes)
+
+            await asyncio.to_thread(_write_docx)
 
             # Give LibreOffice its own HOME so it never conflicts with another instance
             env = os.environ.copy()
@@ -67,12 +76,25 @@ async def convert_docx_to_pdf_via_libreoffice(docx_bytes: bytes) -> bytes:
                 )
 
             pdf_path = os.path.join(tmpdir, "document.pdf")
-            if not os.path.exists(pdf_path):
+
+            # Read PDF and check existence in a thread — avoids blocking on disk I/O.
+            def _read_pdf() -> bytes | None:
+                if not os.path.exists(pdf_path):
+                    return None
+                with open(pdf_path, "rb") as fh:
+                    return fh.read()
+
+            pdf_data = await asyncio.to_thread(_read_pdf)
+
+            if pdf_data is None:
                 logger.error("LibreOffice ran successfully but produced no PDF output")
                 raise HTTPException(
                     status_code=500,
                     detail="PDF conversion produced no output",
                 )
 
-            with open(pdf_path, "rb") as fh:
-                return fh.read()
+            return pdf_data
+
+        finally:
+            # Clean up temp dir in a thread (rmtree is blocking I/O).
+            await asyncio.to_thread(tmpdir_obj.cleanup)
