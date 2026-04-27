@@ -190,7 +190,8 @@
     "status": {
       "pending": "Pending",
       "submitted": "Submitted",
-      "expired": "Expired"
+      "expired": "Expired",
+      "cancelled": "Cancelled"
     },
     "empty": "No invitations yet.",
     "expiresOn": "Expires",

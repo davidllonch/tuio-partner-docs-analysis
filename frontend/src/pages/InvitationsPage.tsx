@@ -42,6 +42,7 @@ function InvitationBadge({ status }: { status: InvitationStatus }) {
     pending: 'bg-amber-100 text-amber-700',
     submitted: 'bg-green-100 text-green-700',
     expired: 'bg-gray-100 text-gray-500',
+    cancelled: 'bg-red-100 text-red-500',
   }
   return (
     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${map[status]}`}>
@@ -314,6 +315,7 @@ export function InvitationsPage() {
               <option value="pending">{t('invitations.status.pending')}</option>
               <option value="submitted">{t('invitations.status.submitted')}</option>
               <option value="expired">{t('invitations.status.expired')}</option>
+              <option value="cancelled">{t('invitations.status.cancelled')}</option>
             </select>
 
             <button

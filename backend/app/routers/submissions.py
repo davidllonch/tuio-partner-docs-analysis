@@ -684,7 +684,7 @@ async def download_document(
     # check can be bypassed with paths like "/data/documents/../etc/passwd".
     _resolved = await asyncio.to_thread(os.path.realpath, document.file_path)
     _base = await asyncio.to_thread(os.path.realpath, settings.DOCUMENTS_BASE_PATH)
-    if not _resolved.startswith(_base):
+    if not _resolved.startswith(_base + os.sep):
         logger.error(
             "Document path outside base dir: %s (doc_id=%s)", document.file_path, doc_id
         )
@@ -756,7 +756,7 @@ async def delete_document(
     # Validate path before deleting — same realpath check as download_document.
     _resolved = await asyncio.to_thread(os.path.realpath, document.file_path)
     _base = await asyncio.to_thread(os.path.realpath, settings.DOCUMENTS_BASE_PATH)
-    if document.file_path and not _resolved.startswith(_base):
+    if document.file_path and not _resolved.startswith(_base + os.sep):
         logger.error("delete_document: path outside base dir: %s", document.file_path)
         # Still delete the DB record but don't touch the filesystem
     else:

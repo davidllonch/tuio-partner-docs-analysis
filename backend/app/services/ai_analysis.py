@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import threading
 from typing import Optional
 
 import anthropic
@@ -267,6 +268,7 @@ DEFAULT_MODEL = "claude-sonnet-4-6"
 
 _anthropic_client: anthropic.AsyncAnthropic | None = None
 _anthropic_client_key: str | None = None
+_anthropic_lock = threading.Lock()
 
 
 def _get_anthropic_client(api_key: str) -> anthropic.AsyncAnthropic:
@@ -276,10 +278,11 @@ def _get_anthropic_client(api_key: str) -> anthropic.AsyncAnthropic:
     via environment variable update without a full process restart).
     """
     global _anthropic_client, _anthropic_client_key
-    if _anthropic_client is None or _anthropic_client_key != api_key:
-        _anthropic_client = anthropic.AsyncAnthropic(api_key=api_key)
-        _anthropic_client_key = api_key
-    return _anthropic_client
+    with _anthropic_lock:
+        if _anthropic_client is None or _anthropic_client_key != api_key:
+            _anthropic_client = anthropic.AsyncAnthropic(api_key=api_key)
+            _anthropic_client_key = api_key
+        return _anthropic_client
 
 
 async def _call_anthropic(
@@ -309,6 +312,7 @@ async def _call_anthropic(
 
 _openai_client: openai.AsyncOpenAI | None = None
 _openai_client_key: str | None = None
+_openai_lock = threading.Lock()
 
 
 def _get_openai_client(api_key: str) -> openai.AsyncOpenAI:
@@ -317,10 +321,11 @@ def _get_openai_client(api_key: str) -> openai.AsyncOpenAI:
     Recreates the client if the API key has changed.
     """
     global _openai_client, _openai_client_key
-    if _openai_client is None or _openai_client_key != api_key:
-        _openai_client = openai.AsyncOpenAI(api_key=api_key)
-        _openai_client_key = api_key
-    return _openai_client
+    with _openai_lock:
+        if _openai_client is None or _openai_client_key != api_key:
+            _openai_client = openai.AsyncOpenAI(api_key=api_key)
+            _openai_client_key = api_key
+        return _openai_client
 
 
 async def _call_openai(

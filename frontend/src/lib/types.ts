@@ -8,7 +8,7 @@ export type EntityType = 'PF' | 'PJ'
 
 export type SubmissionStatus = 'pending' | 'analysing' | 'complete' | 'error'
 
-export type InvitationStatus = 'pending' | 'submitted' | 'expired'
+export type InvitationStatus = 'pending' | 'submitted' | 'expired' | 'cancelled'
 
 export interface SubmissionListItem {
   id: string

@@ -142,7 +142,11 @@ async def list_invitations(
     items = []
     for inv in invitations:
         item = InvitationListItem.model_validate(inv)
-        item.invitation_url = f"{settings.FRONTEND_BASE_URL}/invite/{inv.token}"
+        item.invitation_url = (
+            f"{settings.FRONTEND_BASE_URL}/invite/{inv.token}"
+            if inv.status == "pending"
+            else None
+        )
         items.append(item)
 
     return InvitationListResponse(
