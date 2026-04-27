@@ -181,6 +181,9 @@ async def get_invitation_by_token(
     if invitation.status == "expired":
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="expired")
 
+    if invitation.status == "cancelled":
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="cancelled")
+
     return invitation
 
 

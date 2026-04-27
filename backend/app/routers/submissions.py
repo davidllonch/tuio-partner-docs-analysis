@@ -399,6 +399,11 @@ async def create_submission(
                 status_code=status.HTTP_410_GONE,
                 detail="already_used",
             )
+        if invitation.status == "cancelled":
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="cancelled",
+            )
         if invitation.status == "expired" or invitation.expires_at < datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_410_GONE,
@@ -871,7 +876,9 @@ async def add_document(
 
 
 @router.post("/submissions/{submission_id}/reanalyse", response_model=ReanalyseResponse)
+@_limiter.limit("20/hour")
 async def reanalyse_submission(
+    request: Request,
     submission_id: uuid.UUID,
     body: ReanalyseRequest,
     db: AsyncSession = Depends(get_db),
@@ -1059,6 +1066,12 @@ async def download_report_pdf(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
     if not submission.ai_response:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No report available for this submission")
+
+    if len(submission.ai_response) > 200_000:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Report is too large to render as PDF",
+        )
 
     # Convert Markdown → HTML (tables extension for the semaphore table),
     # then sanitize to remove any unexpected tags from the AI output (C1).

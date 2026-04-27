@@ -52,9 +52,21 @@ async def cleanup_old_documents(documents_base_path: str, database_url: str) -> 
                     # Wrapped in asyncio.to_thread() so the synchronous filesystem
                     # calls don't block the async event loop while files are being deleted.
                     try:
-                        file_exists = await asyncio.to_thread(os.path.exists, doc.file_path)
+                        # Defense-in-depth: verify the path is inside the documents directory
+                        # before deleting — guards against corrupted or tampered DB records.
+                        real_doc_path = os.path.realpath(doc.file_path)
+                        real_base = os.path.realpath(documents_base_path)
+                        if not real_doc_path.startswith(real_base + os.sep):
+                            logger.error(
+                                "Cleanup: refusing to delete path outside base dir: %s",
+                                doc.file_path,
+                            )
+                            error_count += 1
+                            continue
+
+                        file_exists = await asyncio.to_thread(os.path.exists, real_doc_path)
                         if file_exists:
-                            await asyncio.to_thread(os.remove, doc.file_path)
+                            await asyncio.to_thread(os.remove, real_doc_path)
                             logger.debug("Deleted file: %s", doc.file_path)
                     except OSError as exc:
                         logger.warning(

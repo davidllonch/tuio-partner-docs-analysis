@@ -301,6 +301,17 @@ async def _call_anthropic(
     return response.content[0].text, model
 
 
+_openai_client: openai.AsyncOpenAI | None = None
+
+
+def _get_openai_client(api_key: str) -> openai.AsyncOpenAI:
+    """Return a module-level cached AsyncOpenAI client."""
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = openai.AsyncOpenAI(api_key=api_key)
+    return _openai_client
+
+
 async def _call_openai(
     content_list: list[dict],
     openai_api_key: str,
@@ -309,7 +320,7 @@ async def _call_openai(
     Call OpenAI's GPT-4o as a fallback if Anthropic is unavailable.
     Converts the content format before sending.
     """
-    openai_client = openai.AsyncOpenAI(api_key=openai_api_key)
+    openai_client = _get_openai_client(openai_api_key)
     openai_content = _convert_to_openai_content(content_list)
 
     response = await openai_client.chat.completions.create(
@@ -346,6 +357,19 @@ async def run_analysis(
     content_list = _build_anthropic_content(
         provider_name, provider_type, entity_type, country, extracted_docs
     )
+
+    # If an OpenAI model was explicitly requested, skip Anthropic entirely.
+    # Sending a GPT model name to the Anthropic API would cause a 4xx error
+    # and waste ~4 seconds on retries before the OpenAI fallback triggered.
+    if model.startswith("gpt-"):
+        logger.info("GPT model requested — routing directly to OpenAI for provider %s", provider_name)
+        try:
+            result = await _call_openai(content_list, openai_api_key)
+            logger.info("OpenAI API call succeeded")
+            return result
+        except Exception as exc:
+            logger.error("OpenAI API call failed: %s", exc)
+            raise RuntimeError(f"OpenAI analysis failed: {exc}") from exc
 
     # Attempt Anthropic up to 2 times before falling back
     last_exception: Optional[Exception] = None

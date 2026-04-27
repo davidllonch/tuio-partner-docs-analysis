@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import logging
 from dataclasses import dataclass
@@ -192,8 +193,8 @@ async def extract_documents(documents: list[dict]) -> list[ExtractedDoc]:
                 )
                 continue
             if mime_type == "application/pdf":
-                # First: try text extraction
-                text = _extract_pdf_text(file_path)
+                # First: try text extraction (offload to thread — fitz is blocking I/O + CPU)
+                text = await asyncio.to_thread(_extract_pdf_text, file_path)
 
                 if text:
                     # PDF has meaningful text — use it directly
@@ -212,7 +213,7 @@ async def extract_documents(documents: list[dict]) -> list[ExtractedDoc]:
                         "PDF '%s' has little text — rendering pages as images for Claude Vision",
                         filename,
                     )
-                    page_images = _pdf_pages_to_images(file_path)
+                    page_images = await asyncio.to_thread(_pdf_pages_to_images, file_path)
 
                     if page_images:
                         # Send each page as a separate image block to Claude Vision
@@ -237,7 +238,7 @@ async def extract_documents(documents: list[dict]) -> list[ExtractedDoc]:
                             "Image rendering failed for '%s' — falling back to OCR",
                             filename,
                         )
-                        ocr_text = _ocr_pdf(file_path)
+                        ocr_text = await asyncio.to_thread(_ocr_pdf, file_path)
                         results.append(
                             ExtractedDoc(
                                 filename=filename,
@@ -249,7 +250,7 @@ async def extract_documents(documents: list[dict]) -> list[ExtractedDoc]:
                         )
 
             elif mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                text = _extract_docx(file_path)
+                text = await asyncio.to_thread(_extract_docx, file_path)
                 results.append(
                     ExtractedDoc(
                         filename=filename,
@@ -263,7 +264,7 @@ async def extract_documents(documents: list[dict]) -> list[ExtractedDoc]:
             elif mime_type in ("image/jpeg", "image/png"):
                 # For images, hand the raw pixels directly to Claude Vision —
                 # no OCR, which would reduce quality and lose visual information.
-                image_b64 = _encode_image(file_path)
+                image_b64 = await asyncio.to_thread(_encode_image, file_path)
                 results.append(
                     ExtractedDoc(
                         filename=filename,

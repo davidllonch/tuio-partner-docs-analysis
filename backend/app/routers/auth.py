@@ -103,6 +103,12 @@ async def change_password(
             detail="Current password is incorrect",
         )
 
+    if body.new_password == body.current_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must differ from the current password",
+        )
+
     current_analyst.hashed_password = hash_password(body.new_password)
     # Invalidate all existing tokens by bumping the version counter.
     # Any JWT issued before this change will have an old token_ver and will be rejected.

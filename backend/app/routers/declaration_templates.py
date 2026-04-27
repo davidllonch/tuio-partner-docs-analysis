@@ -175,15 +175,40 @@ def _replace_in_paragraph_elem(p_elem, replacements: dict[str, str]) -> None:
         elem.text = ""
 
 
+def _iter_all_tables(doc: DocxDocument):
+    """Yield all tables including nested ones inside table cells."""
+    queue = list(doc.tables)
+    while queue:
+        table = queue.pop(0)
+        yield table
+        for row in table.rows:
+            for cell in row.cells:
+                queue.extend(cell.tables)
+
+
 def _replace_placeholders_in_docx(doc: DocxDocument, replacements: dict[str, str]) -> None:
-    """Replace placeholder strings (e.g. '[ CAMPO ]') in a python-docx Document."""
+    """Replace placeholder strings (e.g. '[CAMPO]') in a python-docx Document.
+
+    Covers body paragraphs, all tables (including nested), and headers/footers
+    so placeholders embedded in any part of the template are replaced.
+    """
     for para in doc.paragraphs:
         _replace_in_paragraph_elem(para._p, replacements)
 
-    for table in doc.tables:
+    for table in _iter_all_tables(doc):
         for row in table.rows:
             for cell in row.cells:
                 for para in cell.paragraphs:
+                    _replace_in_paragraph_elem(para._p, replacements)
+
+    for section in doc.sections:
+        for hdr in (section.header, section.first_page_header, section.even_page_header):
+            if hdr is not None:
+                for para in hdr.paragraphs:
+                    _replace_in_paragraph_elem(para._p, replacements)
+        for ftr in (section.footer, section.first_page_footer, section.even_page_footer):
+            if ftr is not None:
+                for para in ftr.paragraphs:
                     _replace_in_paragraph_elem(para._p, replacements)
 
 
@@ -427,7 +452,14 @@ async def generate_declaration_pdf(
             detail="No declaration template found for this provider type and entity type",
         )
 
-    if not await asyncio.to_thread(os.path.exists, template.file_path):
+    # Prevent path traversal: ensure the stored path resolves inside the expected dir
+    decl_template_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, "declaration_templates")
+    real_decl_path = os.path.realpath(template.file_path)
+    if not real_decl_path.startswith(os.path.realpath(decl_template_dir) + os.sep):
+        logger.error("Declaration template path escapes base dir: %s", template.file_path)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
+
+    if not await asyncio.to_thread(os.path.exists, real_decl_path):
         logger.error(
             "Declaration template file missing on disk: %s", template.file_path
         )
@@ -437,13 +469,15 @@ async def generate_declaration_pdf(
         )
 
     # ── 1. Load and patch the DOCX ────────────────────────────────────────────
-    doc = DocxDocument(template.file_path)
+    # DocxDocument opens a ZIP archive and parses XML — offload to thread pool.
+    doc = await asyncio.to_thread(DocxDocument, real_decl_path)
     replacements = _build_replacements(entity_type, body.partner_info)
     _replace_placeholders_in_docx(doc, replacements)
 
     # ── 2. Save patched DOCX to an in-memory buffer ───────────────────────────
+    # doc.save() serialises XML + ZIP — offload to thread pool.
     docx_buffer = io.BytesIO()
-    doc.save(docx_buffer)
+    await asyncio.to_thread(doc.save, docx_buffer)
     docx_bytes = docx_buffer.getvalue()
 
     # ── 3. Convert patched DOCX → PDF via LibreOffice ────────────────────────

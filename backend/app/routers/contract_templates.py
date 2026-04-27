@@ -1005,7 +1005,14 @@ async def generate_contract_pdf(
             detail="No contract template found for this provider type and entity type",
         )
 
-    if not await asyncio.to_thread(os.path.exists, template.file_path):
+    # Prevent path traversal: ensure the stored path resolves inside the expected dir
+    generate_template_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, "contract_templates")
+    real_generate_path = os.path.realpath(template.file_path)
+    if not real_generate_path.startswith(os.path.realpath(generate_template_dir) + os.sep):
+        logger.error("Contract template path escapes base dir: %s", template.file_path)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
+
+    if not await asyncio.to_thread(os.path.exists, real_generate_path):
         logger.error(
             "Contract template file missing on disk: %s", template.file_path
         )
@@ -1015,7 +1022,8 @@ async def generate_contract_pdf(
         )
 
     # ── 1. Load and patch the DOCX (partner fields + date only) ──────────────
-    doc = DocxDocument(template.file_path)
+    # DocxDocument opens a ZIP archive and parses XML — offload to thread pool.
+    doc = await asyncio.to_thread(DocxDocument, real_generate_path)
     replacements = _build_partner_replacements(entity_type, body.partner_info)
     _replace_placeholders_in_docx(doc, replacements)
     # Commission placeholders and [ACTIVIDAD] are deliberately left as-is.
@@ -1024,8 +1032,9 @@ async def generate_contract_pdf(
     _strip_highlights_from_filled_elements(doc)
 
     # ── 2. Save patched DOCX to an in-memory buffer ───────────────────────────
+    # doc.save() serialises XML + ZIP — offload to thread pool.
     docx_buffer = io.BytesIO()
-    doc.save(docx_buffer)
+    await asyncio.to_thread(doc.save, docx_buffer)
     docx_bytes = docx_buffer.getvalue()
 
     # ── 3. Convert patched DOCX → PDF via LibreOffice ────────────────────────
@@ -1047,7 +1056,9 @@ async def generate_contract_pdf(
 
 
 @router.post("/contract-templates/{provider_type}/{entity_type}/generate-full")
+@_limiter.limit("30/hour")
 async def generate_full_contract_pdf(
+    request: Request,
     provider_type: str,
     entity_type: str,
     body: GenerateFullRequest,
@@ -1091,7 +1102,14 @@ async def generate_full_contract_pdf(
             detail="No contract template found for this provider type and entity type",
         )
 
-    if not await asyncio.to_thread(os.path.exists, template.file_path):
+    # Prevent path traversal: ensure the stored path resolves inside the expected dir
+    full_template_dir = os.path.join(settings.DOCUMENTS_BASE_PATH, "contract_templates")
+    real_full_path = os.path.realpath(template.file_path)
+    if not real_full_path.startswith(os.path.realpath(full_template_dir) + os.sep):
+        logger.error("Contract template path escapes base dir: %s", template.file_path)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
+
+    if not await asyncio.to_thread(os.path.exists, real_full_path):
         logger.error(
             "Contract template file missing on disk: %s", template.file_path
         )
@@ -1104,7 +1122,8 @@ async def generate_full_contract_pdf(
     commission_rows = body.contract_data.get("commissions", [])
 
     # ── 1. Load DOCX ─────────────────────────────────────────────────────────
-    doc = DocxDocument(template.file_path)
+    # DocxDocument opens a ZIP archive and parses XML — offload to thread pool.
+    doc = await asyncio.to_thread(DocxDocument, real_full_path)
 
     # ── 2. Replace all partner + analyst placeholders ─────────────────────────
     replacements = _build_full_replacements(entity_type, body.partner_info, contract_fields)
@@ -1127,8 +1146,9 @@ async def generate_full_contract_pdf(
     _strip_all_highlights(doc)
 
     # ── 6. Save patched DOCX to an in-memory buffer ───────────────────────────
+    # doc.save() serialises XML + ZIP — offload to thread pool.
     docx_buffer = io.BytesIO()
-    doc.save(docx_buffer)
+    await asyncio.to_thread(doc.save, docx_buffer)
     docx_bytes = docx_buffer.getvalue()
 
     # ── 7. Convert patched DOCX → PDF via LibreOffice ────────────────────────
