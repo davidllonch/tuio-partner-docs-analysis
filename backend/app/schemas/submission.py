@@ -166,7 +166,6 @@ class CreateInvitationRequest(BaseModel):
 
 class InvitationListItem(BaseModel):
     id: uuid.UUID
-    token: str
     provider_name: str
     provider_type: str
     entity_type: str
@@ -176,6 +175,7 @@ class InvitationListItem(BaseModel):
     expires_at: datetime
     submission_id: Optional[uuid.UUID]
     created_by_analyst: Optional[AnalystSummary]
+    invitation_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

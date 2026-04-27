@@ -11,7 +11,7 @@ from typing import Optional
 
 from docx import Document as DocxDocument
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -249,19 +249,21 @@ def _fuzzy_sub(pattern_text: str, replacement: str, subject: str) -> str:
 
 def _fuzzy_search(pattern_text: str, subject: str) -> bool:
     """Return True if subject contains pattern_text (fuzzy-encoded)."""
-    # Fast path
+    # Fast path: no non-ASCII characters in the pattern
     if all(ord(ch) < 128 for ch in pattern_text):
         return pattern_text in subject
-    # Check both the literal and the \ufffd-substituted variant
+    # Check the literal variant first (cheap)
     if pattern_text in subject:
         return True
-    # Build fuzzy regex
+    # Build fuzzy regex using character classes [X\ufffd] instead of alternation
+    # (?:X|\ufffd) \u2014 character classes have no backtracking, preventing ReDoS on
+    # crafted DOCX content with many consecutive non-ASCII characters.
     parts = []
     for ch in pattern_text:
         if ch == _REPL:
             parts.append(".")
         elif ord(ch) > 127:
-            parts.append(f"(?:{re.escape(ch)}|{re.escape(_REPL)})")
+            parts.append(f"[{re.escape(ch)}{re.escape(_REPL)}]")
         else:
             parts.append(re.escape(ch))
     return bool(re.search("".join(parts), subject))
@@ -1049,6 +1051,9 @@ async def generate_contract_pdf(
     # ── 3. Convert patched DOCX → PDF via LibreOffice ────────────────────────
     pdf_bytes = await convert_docx_to_pdf_via_libreoffice(docx_bytes)
 
+    if len(pdf_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=500, detail="Generated PDF exceeds size limit")
+
     # ── 4. Stream back ────────────────────────────────────────────────────────
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
@@ -1162,6 +1167,9 @@ async def generate_full_contract_pdf(
 
     # ── 7. Convert patched DOCX → PDF via LibreOffice ────────────────────────
     pdf_bytes = await convert_docx_to_pdf_via_libreoffice(docx_bytes)
+
+    if len(pdf_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=500, detail="Generated PDF exceeds size limit")
 
     # ── 8. Stream back ────────────────────────────────────────────────────────
     return StreamingResponse(

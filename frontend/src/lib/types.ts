@@ -130,7 +130,6 @@ export interface InvitationAnalyst {
 
 export interface InvitationListItem {
   id: string
-  token: string
   provider_name: string
   provider_type: ProviderType
   entity_type: EntityType
@@ -140,6 +139,7 @@ export interface InvitationListItem {
   expires_at: string
   submission_id: string | null
   created_by_analyst: InvitationAnalyst | null
+  invitation_url: string | null
 }
 
 export interface InvitationCreateResponse extends InvitationListItem {

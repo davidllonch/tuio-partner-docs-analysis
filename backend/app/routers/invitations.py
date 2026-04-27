@@ -100,6 +100,7 @@ async def list_invitations(
     size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_analyst: Analyst = Depends(get_current_analyst),
+    settings: Settings = Depends(get_settings),
 ):
     """
     Return a paginated list of all invitations (all analysts see all invitations).
@@ -138,8 +139,14 @@ async def list_invitations(
     )
     invitations = result.scalars().all()
 
+    items = []
+    for inv in invitations:
+        item = InvitationListItem.model_validate(inv)
+        item.invitation_url = f"{settings.FRONTEND_BASE_URL}/invite/{inv.token}"
+        items.append(item)
+
     return InvitationListResponse(
-        items=invitations,
+        items=items,
         total=total,
         page=page,
         size=size,

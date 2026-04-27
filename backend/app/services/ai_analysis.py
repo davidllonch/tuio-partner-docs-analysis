@@ -266,13 +266,19 @@ def _convert_to_openai_content(anthropic_content: list[dict]) -> list[dict]:
 DEFAULT_MODEL = "claude-sonnet-4-6"
 
 _anthropic_client: anthropic.AsyncAnthropic | None = None
+_anthropic_client_key: str | None = None
 
 
 def _get_anthropic_client(api_key: str) -> anthropic.AsyncAnthropic:
-    """Return a module-level cached AsyncAnthropic client."""
-    global _anthropic_client
-    if _anthropic_client is None:
+    """Return a module-level cached AsyncAnthropic client.
+
+    Recreates the client if the API key has changed (e.g. after a key rotation
+    via environment variable update without a full process restart).
+    """
+    global _anthropic_client, _anthropic_client_key
+    if _anthropic_client is None or _anthropic_client_key != api_key:
         _anthropic_client = anthropic.AsyncAnthropic(api_key=api_key)
+        _anthropic_client_key = api_key
     return _anthropic_client
 
 
@@ -302,13 +308,18 @@ async def _call_anthropic(
 
 
 _openai_client: openai.AsyncOpenAI | None = None
+_openai_client_key: str | None = None
 
 
 def _get_openai_client(api_key: str) -> openai.AsyncOpenAI:
-    """Return a module-level cached AsyncOpenAI client."""
-    global _openai_client
-    if _openai_client is None:
+    """Return a module-level cached AsyncOpenAI client.
+
+    Recreates the client if the API key has changed.
+    """
+    global _openai_client, _openai_client_key
+    if _openai_client is None or _openai_client_key != api_key:
         _openai_client = openai.AsyncOpenAI(api_key=api_key)
+        _openai_client_key = api_key
     return _openai_client
 
 

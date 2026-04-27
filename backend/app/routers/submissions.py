@@ -291,6 +291,12 @@ async def create_submission(
             detail="country must not exceed 100 characters",
         )
 
+    if not provider_name or not provider_name.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider_name is required",
+        )
+
     if len(provider_name) > 255:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -1150,5 +1156,5 @@ async def download_report_pdf(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": content_disposition_filename(filename)},
     )

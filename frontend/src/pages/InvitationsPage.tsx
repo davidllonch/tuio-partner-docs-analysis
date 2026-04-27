@@ -399,7 +399,7 @@ export function InvitationsPage() {
                               {inv.status === 'pending' && (
                                 <>
                                   <CopyButton
-                                    url={`${window.location.origin}/invite/${inv.token}`}
+                                    url={inv.invitation_url ?? ''}
                                   />
                                   <button
                                     onClick={() => handleCancel(inv.id, inv.provider_name)}

@@ -8,7 +8,7 @@ from typing import Optional
 
 from docx import Document as DocxDocument
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -489,6 +489,9 @@ async def generate_declaration_pdf(
 
     # ── 3. Convert patched DOCX → PDF via LibreOffice ────────────────────────
     pdf_bytes = await convert_docx_to_pdf_via_libreoffice(docx_bytes)
+
+    if len(pdf_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=500, detail="Generated PDF exceeds size limit")
 
     # ── 4. Stream back ────────────────────────────────────────────────────────
     return StreamingResponse(
