@@ -26,11 +26,13 @@ def upgrade() -> None:
         "ix_documents_uploaded_at",
         "documents",
         ["uploaded_at"],
+        if_not_exists=True,
     )
     op.create_index(
         "ix_submissions_created_at",
         "submissions",
         ["created_at"],
+        if_not_exists=True,
     )
 
 
