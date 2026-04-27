@@ -910,7 +910,7 @@ async def reanalyse_submission(
     extraction_inputs: list[dict] = []
     for doc in submission.documents:
         _resolved = await asyncio.to_thread(os.path.realpath, doc.file_path)
-        if not _resolved.startswith(_base):
+        if not _resolved.startswith(_base + os.sep):
             logger.warning("reanalyse: skipping doc with path outside base dir: %s", doc.file_path)
             continue
         if not await asyncio.to_thread(os.path.exists, doc.file_path):
