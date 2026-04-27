@@ -37,6 +37,7 @@ from app.models import analyst as _analyst_module  # noqa: F401 — registers th
 from app.models import submission as _submission_module  # noqa: F401
 from app.models import analysis as _analysis_module  # noqa: F401
 from app.models import audit as _audit_module  # noqa: F401
+from app.models import invitation as _invitation_module  # noqa: F401 — registers the model
 
 # ---------------------------------------------------------------------------
 # SQLite-compatible async engine (in-memory, no file, no server required)
@@ -178,6 +179,7 @@ async def create_analyst_in_db(
     password: str = "securepass123",
     full_name: str = "Test Analyst",
     is_active: bool = True,
+    is_admin: bool = False,
 ) -> Analyst:
     analyst = Analyst(
         id=uuid.uuid4(),
@@ -186,6 +188,7 @@ async def create_analyst_in_db(
         hashed_password=hash_password(password),
         created_at=datetime.now(timezone.utc),
         is_active=is_active,
+        is_admin=is_admin,
     )
     session.add(analyst)
     await session.commit()
@@ -205,7 +208,7 @@ def make_token_for(analyst: Analyst, settings=None) -> str:
     if settings is None:
         settings = make_test_settings()
     return create_access_token(
-        data={"sub": str(analyst.id)},
+        data={"sub": str(analyst.id), "token_ver": analyst.token_version},
         secret=settings.JWT_SECRET_KEY,
         expire_hours=settings.JWT_EXPIRE_HOURS,
         algorithm=settings.JWT_ALGORITHM,

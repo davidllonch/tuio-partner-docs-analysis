@@ -170,8 +170,7 @@ async def test_get_me_without_token_returns_403(client, db_session):
     FastAPI's HTTPBearer returns 403 (not 401) when the header is absent.
     """
     response = await client.get("/api/auth/me")
-    # HTTPBearer returns 403 when the Bearer header is entirely missing
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -245,7 +244,7 @@ async def test_change_password_without_auth_returns_403(client, db_session):
         "/api/auth/change-password",
         json={"current_password": "any", "new_password": "NewPassword2"},
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio

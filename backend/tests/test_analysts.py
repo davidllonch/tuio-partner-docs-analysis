@@ -26,7 +26,7 @@ async def test_list_analysts_requires_auth(client, db_session):
     because FastAPI HTTPBearer returns 403 when the header is absent).
     """
     response = await client.get("/api/analysts")
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -104,7 +104,7 @@ async def test_create_analyst_without_auth_returns_403(client, db_session):
             "password": "SecurePass1",
         },
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -127,10 +127,10 @@ async def test_create_analyst_with_invalid_token_returns_401(client, db_session)
 @pytest.mark.asyncio
 async def test_create_analyst_succeeds_with_valid_auth(client, db_session):
     """
-    An authenticated analyst can create a new analyst account.
+    An admin analyst can create a new analyst account.
     The response must return HTTP 201 and the new analyst's profile.
     """
-    creator = await create_analyst_in_db(db_session, email="creator@example.com")
+    creator = await create_analyst_in_db(db_session, email="creator@example.com", is_admin=True)
     token = make_token_for(creator)
 
     response = await client.post(
@@ -154,7 +154,7 @@ async def test_create_analyst_response_never_contains_hashed_password(client, db
     """
     The create-analyst response must not include the hashed_password field.
     """
-    creator = await create_analyst_in_db(db_session, email="creator@example.com")
+    creator = await create_analyst_in_db(db_session, email="creator@example.com", is_admin=True)
     token = make_token_for(creator)
 
     response = await client.post(
@@ -183,7 +183,7 @@ async def test_create_analyst_with_duplicate_email_returns_409(client, db_sessio
     hitting it (which is what the 409 response confirms).
     """
     creator = await create_analyst_in_db(
-        db_session, email="creator@example.com"
+        db_session, email="creator@example.com", is_admin=True
     )
     # Create the first analyst with the target email
     await create_analyst_in_db(
@@ -212,7 +212,7 @@ async def test_create_analyst_with_invalid_email_format_returns_422(client, db_s
     Pydantic validates the email field. A syntactically invalid email must
     return HTTP 422 without reaching the database.
     """
-    creator = await create_analyst_in_db(db_session, email="creator@example.com")
+    creator = await create_analyst_in_db(db_session, email="creator@example.com", is_admin=True)
     token = make_token_for(creator)
 
     response = await client.post(
@@ -234,7 +234,7 @@ async def test_create_analyst_with_short_password_returns_422(client, db_session
     The schema enforces a minimum of 8 characters for the password field.
     Sending fewer must return HTTP 422 before any DB write happens.
     """
-    creator = await create_analyst_in_db(db_session, email="creator@example.com")
+    creator = await create_analyst_in_db(db_session, email="creator@example.com", is_admin=True)
     token = make_token_for(creator)
 
     response = await client.post(
@@ -262,7 +262,7 @@ async def test_create_analyst_password_is_stored_hashed_not_plaintext(client, db
     from sqlalchemy import select
     from app.models.analyst import Analyst
 
-    creator = await create_analyst_in_db(db_session, email="creator@example.com")
+    creator = await create_analyst_in_db(db_session, email="creator@example.com", is_admin=True)
     token = make_token_for(creator)
 
     plain_password = "PlainTextPass1"

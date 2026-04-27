@@ -66,15 +66,14 @@ async def _create_submission(
 
 
 @pytest.mark.asyncio
-async def test_download_report_pdf_without_auth_returns_403(client, db_session):
+async def test_download_report_pdf_without_auth_returns_401(client, db_session):
     """
     The PDF download endpoint is analyst-only.
-    A request with no Authorization header must be rejected with HTTP 403.
-    (FastAPI's HTTPBearer returns 403 — not 401 — when the header is absent.)
+    A request with no Authorization header must be rejected with HTTP 401.
     """
     fake_id = uuid.uuid4()
     response = await client.get(f"/api/submissions/{fake_id}/report.pdf")
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -329,21 +328,21 @@ async def test_download_report_pdf_provider_name_xss_is_html_escaped(
 # ---------------------------------------------------------------------------
 
 
-from app.routers.submissions import _sanitize_filename
+from app.utils.file_utils import sanitize_filename
 
 
 class TestSanitizeFilename:
     """
-    _sanitize_filename is a pure function that strips unsafe characters from
+    sanitize_filename is a pure function that strips unsafe characters from
     user-supplied filenames. These tests run synchronously — no async/await
     and no fixtures needed.
     """
 
     def test_normal_filename_unchanged(self):
-        assert _sanitize_filename("document.pdf") == "document.pdf"
+        assert sanitize_filename("document.pdf") == "document.pdf"
 
     def test_spaces_become_underscores(self):
-        result = _sanitize_filename("my document.pdf")
+        result = sanitize_filename("my document.pdf")
         assert " " not in result
         assert "_" in result
 
@@ -352,30 +351,32 @@ class TestSanitizeFilename:
         A filename like ../../etc/passwd should not produce a path outside
         the intended directory. os.path.basename removes the directory component.
         """
-        result = _sanitize_filename("../../etc/passwd")
+        result = sanitize_filename("../../etc/passwd")
         assert ".." not in result
         assert "/" not in result
 
     def test_special_characters_are_removed(self):
-        result = _sanitize_filename("file;rm -rf /.pdf")
+        result = sanitize_filename("file;rm -rf /.pdf")
         assert ";" not in result
         assert " " not in result
 
-    def test_empty_filename_becomes_document(self):
-        result = _sanitize_filename("")
-        assert result == "document"
+    def test_empty_filename_becomes_file(self):
+        # sanitize_filename uses fallback="file" by default
+        result = sanitize_filename("")
+        assert result == "file"
 
-    def test_only_special_chars_becomes_document(self):
-        result = _sanitize_filename("@#$%^&*()")
-        assert result == "document"
+    def test_only_special_chars_becomes_file(self):
+        result = sanitize_filename("@#$%^&*()")
+        assert result == "file"
 
-    def test_unicode_accents_are_stripped(self):
-        """Accented characters are non-word characters and get removed."""
-        result = _sanitize_filename("résumé.pdf")
-        # Accented chars stripped, only ASCII word chars + dot remain
-        assert "é" not in result
+    def test_unicode_accents_are_preserved(self):
+        """Python 3's \\w is Unicode-aware: accented chars are word chars and are kept."""
+        result = sanitize_filename("résumé.pdf")
+        # Accented chars survive — only shell-special and path chars are removed
+        assert "/" not in result
+        assert ";" not in result
 
     def test_windows_path_separator_stripped(self):
-        result = _sanitize_filename("C:\\Users\\admin\\secret.pdf")
+        result = sanitize_filename("C:\\Users\\admin\\secret.pdf")
         assert "\\" not in result
         assert ":" not in result

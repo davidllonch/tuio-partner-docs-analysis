@@ -84,7 +84,7 @@ async def create_invitation(
     )
 
     return InvitationCreateResponse(
-        **InvitationListItem.model_validate(invitation).model_dump(),
+        **InvitationListItem.model_validate(invitation).model_dump(exclude={"invitation_url"}),
         invitation_url=invitation_url,
     )
 
@@ -187,7 +187,10 @@ async def get_invitation_by_token(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
 
     # Auto-expire invitations that have passed their expiry date
-    if invitation.status == "pending" and invitation.expires_at < datetime.now(timezone.utc):
+    expires_at = invitation.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if invitation.status == "pending" and expires_at < datetime.now(timezone.utc):
         invitation.status = "expired"
         await db.commit()
 
