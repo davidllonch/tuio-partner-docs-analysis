@@ -29,6 +29,7 @@ export function AnalystHeader() {
   const isPartnersActive =
     location.pathname === '/dashboard' ||
     location.pathname === '/invitations' ||
+    location.pathname === '/documentation-list' ||
     location.pathname.startsWith('/submissions/')
   const isTemplatesActive =
     location.pathname === '/declaration-templates' ||
@@ -87,6 +88,13 @@ export function AnalystHeader() {
                         onClick={() => setOpenMenu(null)}
                       >
                         {t('nav.invitations')}
+                      </Link>
+                      <Link
+                        to="/documentation-list"
+                        className={dropdownItemClass}
+                        onClick={() => setOpenMenu(null)}
+                      >
+                        {t('nav.documentationList')}
                       </Link>
                     </div>
                   )}

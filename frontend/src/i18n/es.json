@@ -6,7 +6,8 @@
     "declarationTemplates": "Templates de Declaraciones",
     "contractTemplates": "Templates de Contratos",
     "partners": "Partners",
-    "templates": "Templates"
+    "templates": "Templates",
+    "documentationList": "Listado de Documentación"
   },
   "landing": {
     "title": "KYC/KYB de Partners de Tuio",
@@ -282,5 +283,9 @@
     "validationError": "Por favor, sube todos los documentos obligatorios antes de enviar.",
     "sameAsConstitution": "Mismo documento que Escrituras de constitución",
     "sameAsConstitutionDeclared": "Declarado: incluido en las Escrituras de constitución"
+  },
+  "docList": {
+    "title": "Listado de Documentación",
+    "subtitle": "Documentación requerida a cada tipo de partner según su forma jurídica."
   }
 }

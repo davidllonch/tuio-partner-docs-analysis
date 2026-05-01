@@ -6,7 +6,8 @@
     "declarationTemplates": "Declaration Templates",
     "contractTemplates": "Contract Templates",
     "partners": "Partners",
-    "templates": "Templates"
+    "templates": "Templates",
+    "documentationList": "Documentation List"
   },
   "landing": {
     "title": "KYC/KYB for Tuio Partners",
@@ -282,5 +283,9 @@
     "validationError": "Please upload all required documents before submitting.",
     "sameAsConstitution": "Same document as the Articles of Incorporation",
     "sameAsConstitutionDeclared": "Declared: included in the Articles of Incorporation"
+  },
+  "docList": {
+    "title": "Documentation List",
+    "subtitle": "Documents required from each partner type based on their legal form."
   }
 }
