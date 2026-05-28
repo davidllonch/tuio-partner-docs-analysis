@@ -258,56 +258,70 @@ export function ValidateDocumentsPage() {
 
           {/* Results table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
-                    {t('validateDocuments.colStatus')}
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('validateDocuments.colDocument')}
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('validateDocuments.colFile')}
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('validateDocuments.colObservation')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {result.results.map((row) => (
-                  <tr
-                    key={row.slot_id}
-                    className={
-                      row.status === 'missing' && !row.is_conditional
-                        ? 'bg-red-50/40'
-                        : row.status === 'partial'
-                        ? 'bg-amber-50/40'
-                        : ''
-                    }
-                  >
-                    <td className="px-4 py-3">
-                      <StatusBadge status={row.status} isConditional={row.is_conditional} />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{row.slot_label}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {row.matched_filename ? (
-                        <span className="inline-flex items-center gap-1">
-                          <FileText className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                          {row.matched_filename}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {row.observation ?? <span className="text-gray-300">—</span>}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full table-fixed divide-y divide-gray-200">
+                <colgroup>
+                  {/* Status badge — fixed narrow */}
+                  <col className="w-32" />
+                  {/* Document required — 28% */}
+                  <col className="w-[28%]" />
+                  {/* File provided — remaining flexible */}
+                  <col />
+                  {/* Observations — 22% */}
+                  <col className="w-[22%]" />
+                </colgroup>
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {t('validateDocuments.colStatus')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {t('validateDocuments.colDocument')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {t('validateDocuments.colFile')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {t('validateDocuments.colObservation')}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {result.results.map((row) => (
+                    <tr
+                      key={row.slot_id}
+                      className={
+                        row.status === 'missing' && !row.is_conditional
+                          ? 'bg-red-50/40'
+                          : row.status === 'partial'
+                          ? 'bg-amber-50/40'
+                          : ''
+                      }
+                    >
+                      <td className="px-4 py-3">
+                        <StatusBadge status={row.status} isConditional={row.is_conditional} />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-800 align-top">
+                        {row.slot_label}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 align-top">
+                        {row.matched_filename ? (
+                          <span className="inline-flex items-start gap-1 min-w-0">
+                            <FileText className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <span className="break-all">{row.matched_filename}</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 align-top">
+                        {row.observation ?? <span className="text-gray-300">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Unmatched files */}
