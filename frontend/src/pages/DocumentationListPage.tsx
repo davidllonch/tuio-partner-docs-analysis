@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { ChevronDown, FileText, AlertCircle } from 'lucide-react'
+import { ChevronDown, FileText, AlertCircle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnalystHeader } from '../components/layout/AnalystHeader'
-import { getRequiredSlots } from '../lib/documentRequirements'
-import type { ProviderType } from '../lib/types'
+import { useDocumentRequirements } from '../lib/documentRequirements'
+import type { ApiDocumentSlot, ProviderType } from '../lib/types'
 
 // All provider types with their display labels
 const PROVIDER_TYPES: { value: ProviderType; label: string }[] = [
@@ -18,12 +18,11 @@ const ENTITY_TYPES = [
   { value: 'PF', label: 'Persona Física (PF)' },
 ]
 
-// Colour accents per provider type
 const PROVIDER_COLOURS: Record<ProviderType, string> = {
-  correduria_seguros: 'border-blue-500 bg-blue-50',
-  agencia_seguros: 'border-purple-500 bg-purple-50',
-  colaborador_externo: 'border-green-500 bg-green-50',
-  generador_leads: 'border-orange-500 bg-orange-50',
+  correduria_seguros: 'border-blue-500',
+  agencia_seguros: 'border-purple-500',
+  colaborador_externo: 'border-green-500',
+  generador_leads: 'border-orange-500',
 }
 
 const PROVIDER_ICON_COLOURS: Record<ProviderType, string> = {
@@ -33,9 +32,7 @@ const PROVIDER_ICON_COLOURS: Record<ProviderType, string> = {
   generador_leads: 'text-orange-600',
 }
 
-function DocumentList({ providerType, entityType }: { providerType: ProviderType; entityType: string }) {
-  const slots = getRequiredSlots(providerType, entityType)
-
+function DocumentList({ slots }: { slots: ApiDocumentSlot[] }) {
   return (
     <ul className="divide-y divide-gray-100">
       {slots.map((slot, index) => (
@@ -45,14 +42,8 @@ function DocumentList({ providerType, entityType }: { providerType: ProviderType
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-sm text-gray-800">{slot.label}</p>
-            {slot.note && (
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-amber-600">
-                <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                {slot.note}
-              </p>
-            )}
           </div>
-          {slot.isConditional ? (
+          {slot.is_conditional ? (
             <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
               Condicional
             </span>
@@ -71,12 +62,13 @@ function ProviderAccordion({ providerType, label }: { providerType: ProviderType
   const [isOpen, setIsOpen] = useState(false)
   const [activeEntity, setActiveEntity] = useState<'PJ' | 'PF'>('PJ')
 
-  const pjCount = getRequiredSlots(providerType, 'PJ').length
-  const pfCount = getRequiredSlots(providerType, 'PF').length
+  const { data, isLoading, isError } = useDocumentRequirements(
+    isOpen ? providerType : '',
+    isOpen ? activeEntity : ''
+  )
 
   return (
     <div className={`rounded-xl border-l-4 bg-white shadow-sm overflow-hidden ${PROVIDER_COLOURS[providerType]}`}>
-      {/* Accordion header */}
       <button
         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -84,22 +76,15 @@ function ProviderAccordion({ providerType, label }: { providerType: ProviderType
       >
         <div className="flex items-center gap-3">
           <FileText className={`h-5 w-5 flex-shrink-0 ${PROVIDER_ICON_COLOURS[providerType]}`} />
-          <div>
-            <span className="font-semibold text-gray-900">{label}</span>
-            <span className="ml-3 text-xs text-gray-400">
-              {pjCount} docs (PJ) · {pfCount} docs (PF)
-            </span>
-          </div>
+          <span className="font-semibold text-gray-900">{label}</span>
         </div>
         <ChevronDown
           className={`h-5 w-5 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
-      {/* Accordion body */}
       {isOpen && (
         <div className="border-t border-gray-100 px-5 pb-5">
-          {/* PJ / PF tab switcher */}
           <div className="flex gap-1 mt-4 mb-4 bg-gray-100 p-1 rounded-lg w-fit">
             {ENTITY_TYPES.map((et) => (
               <button
@@ -116,7 +101,21 @@ function ProviderAccordion({ providerType, label }: { providerType: ProviderType
             ))}
           </div>
 
-          <DocumentList providerType={providerType} entityType={activeEntity} />
+          {isLoading ? (
+            <div className="flex items-center gap-2 py-6 text-gray-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Carregant...</span>
+            </div>
+          ) : isError ? (
+            <div className="flex items-center gap-2 py-6 text-red-500">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span className="text-sm">
+                No s'han pogut carregar els requisits. Torna-ho a intentar.
+              </span>
+            </div>
+          ) : data?.slots ? (
+            <DocumentList slots={data.slots} />
+          ) : null}
         </div>
       )}
     </div>
@@ -131,13 +130,11 @@ export function DocumentationListPage() {
       <AnalystHeader />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Page header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">{t('docList.title')}</h1>
           <p className="mt-1 text-sm text-gray-500">{t('docList.subtitle')}</p>
         </div>
 
-        {/* Legend */}
         <div className="flex items-center gap-4 mb-6 text-xs text-gray-500">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded bg-green-200" />
@@ -145,11 +142,11 @@ export function DocumentationListPage() {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded bg-amber-200" />
+            <AlertCircle className="h-3 w-3 text-amber-400" />
             Condicional — depèn del cas
           </span>
         </div>
 
-        {/* Accordions */}
         <div className="space-y-3">
           {PROVIDER_TYPES.map((pt) => (
             <ProviderAccordion key={pt.value} providerType={pt.value} label={pt.label} />
