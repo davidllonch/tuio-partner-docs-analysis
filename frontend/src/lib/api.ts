@@ -19,6 +19,8 @@ import type {
   PartnerInfo,
   AllDeclarationTemplatesResponse,
   AllContractTemplatesResponse,
+  DocumentRequirementsResponse,
+  ValidationResponse,
 } from './types'
 
 const baseURL = import.meta.env.VITE_API_URL
@@ -368,6 +370,41 @@ export async function fetchSiNoFields(
   const response = await apiClient.get(
     `/api/contract-templates/${providerType}/${entityType}/si-no-fields`,
     { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+  )
+  return response.data
+}
+
+// --- Document Requirements ---
+
+export async function fetchDocumentRequirements(
+  providerType: string,
+  entityType: string
+): Promise<DocumentRequirementsResponse> {
+  const response = await apiClient.get<DocumentRequirementsResponse>(
+    `/api/document-requirements/${providerType}/${entityType}`
+  )
+  return response.data
+}
+
+// --- Validate Documents ---
+
+export async function validateDocuments(
+  providerType: string,
+  entityType: string,
+  files: File[]
+): Promise<ValidationResponse> {
+  const formData = new FormData()
+  formData.append('provider_type', providerType)
+  formData.append('entity_type', entityType)
+  files.forEach((f) => formData.append('files', f))
+
+  const response = await apiClient.post<ValidationResponse>(
+    '/api/validate-documents',
+    formData,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120_000, // 2 minutes — AI can take time with many files
+    }
   )
   return response.data
 }

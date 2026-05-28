@@ -228,3 +228,39 @@ export interface ContractTemplateInfo {
 export interface AllContractTemplatesResponse {
   templates: ContractTemplateInfo[]
 }
+
+// ── Document requirements (from backend API) ──────────────────────────────────
+
+/** Simplified slot shape returned by GET /api/document-requirements */
+export interface ApiDocumentSlot {
+  id: string
+  label: string
+  is_conditional: boolean
+}
+
+export interface DocumentRequirementsResponse {
+  provider_type: ProviderType
+  entity_type: EntityType
+  slots: ApiDocumentSlot[]
+}
+
+// ── Validate Documents ────────────────────────────────────────────────────────
+
+export type ValidationStatus = 'covered' | 'partial' | 'missing'
+
+export interface ValidationResultRow {
+  slot_id: string
+  slot_label: string
+  is_conditional: boolean
+  status: ValidationStatus
+  matched_filename: string | null
+  observation: string | null
+}
+
+export interface ValidationResponse {
+  provider_type: ProviderType
+  entity_type: EntityType
+  results: ValidationResultRow[]
+  unmatched_files: string[]
+  model_used: string
+}

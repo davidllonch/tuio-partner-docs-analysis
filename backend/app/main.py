@@ -13,6 +13,7 @@ from app.routers import analysts as analysts_router
 from app.routers import invitations as invitations_router
 from app.routers import declaration_templates as declaration_templates_router
 from app.routers import contract_templates as contract_templates_router
+from app.routers import validate_documents as validate_documents_router
 from app.services.cleanup import create_cleanup_scheduler
 from app.utils.rate_limit import limiter
 
@@ -95,6 +96,7 @@ app.include_router(analysts_router.router, prefix="/api")
 app.include_router(invitations_router.router, prefix="/api")
 app.include_router(declaration_templates_router.router, prefix="/api")
 app.include_router(contract_templates_router.router, prefix="/api")
+app.include_router(validate_documents_router.router, prefix="/api")
 
 
 # ── Health check (public, no auth required) ──────────────────────────────────

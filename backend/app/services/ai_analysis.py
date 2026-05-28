@@ -350,6 +350,216 @@ async def _call_openai(
     return response.choices[0].message.content, "gpt-4o"
 
 
+VALIDATION_SYSTEM_PROMPT = """Ets un sistema de validació documental per a una asseguradora espanyola.
+La teva única tasca és comparar els documents aportats amb la llista de documents requerits i retornar un JSON estructurat.
+
+Regles:
+1. Per a cada document requerit, determina quin dels fitxers aportats el cobreix millor.
+2. Assigna un dels tres estats: "covered", "partial", "missing".
+3. "covered": el fitxer cobreix de forma clara i suficient el requisit.
+4. "partial": el fitxer cobreix el requisit de forma incompleta o amb reserves rellevants (document caducat, manca signatura, cobreix parcialment el contingut requerit).
+5. "missing": cap fitxer aportat cobreix el requisit.
+6. "matched_filename" ha de ser el nom exacte del fitxer que millor cobreix el requisit, o null si és "missing".
+7. "observation" és opcional: inclou-la només si hi ha una reserva rellevant que l'analista hauria de saber (màxim 120 caràcters). Per a "covered" sense reserva, retorna null.
+8. "unmatched_files" és la llista de noms de fitxers aportats que no has pogut assignar a cap requisit.
+9. No inventes dades. Si no pots determinar res, usa "missing".
+10. Retorna ÚNICAMENT el JSON, sense cap text addicional, sense markdown, sense ```json.
+
+Format de resposta obligatori:
+{
+  "results": [
+    {
+      "slot_id": "string",
+      "slot_label": "string",
+      "is_conditional": boolean,
+      "status": "covered" | "partial" | "missing",
+      "matched_filename": "string" | null,
+      "observation": "string" | null
+    }
+  ],
+  "unmatched_files": ["string"]
+}"""
+
+
+def _build_validation_content(
+    provider_type: str,
+    entity_type: str,
+    required_slots: list[dict],
+    extracted_docs: list[ExtractedDoc],
+) -> list[dict]:
+    """
+    Build the Anthropic content blocks for a document validation request.
+    Similar to _build_anthropic_content but with a different intro and
+    includes the required slots list.
+    """
+    provider_display = PROVIDER_TYPE_DISPLAY.get(provider_type, provider_type)
+    entity_display = ENTITY_TYPE_DISPLAY.get(entity_type, entity_type)
+
+    slots_text = "\n".join(
+        f"{i + 1}. [{slot['id']}] {slot['label']}"
+        + (" (condicional)" if slot.get("is_conditional") else "")
+        for i, slot in enumerate(required_slots)
+    )
+
+    content: list[dict] = [
+        {
+            "type": "text",
+            "text": (
+                f"Tipus de partner: {provider_display}\n"
+                f"Tipus d'entitat: {entity_display}\n\n"
+                f"Documents requerits:\n{slots_text}\n\n"
+                f"Documents aportats ({len(extracted_docs)} fitxers):"
+            ),
+        }
+    ]
+
+    for doc in extracted_docs:
+        if doc.image_b64 is not None:
+            content.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": doc.mime_type,
+                        "data": doc.image_b64,
+                    },
+                }
+            )
+            content.append(
+                {
+                    "type": "text",
+                    "text": f"[Fitxer anterior: {doc.filename}]",
+                }
+            )
+        elif doc.text:
+            content.append(
+                {
+                    "type": "text",
+                    "text": f"[Fitxer: {doc.filename}]\n{doc.text}",
+                }
+            )
+        else:
+            content.append(
+                {
+                    "type": "text",
+                    "text": (
+                        f"[Fitxer: {doc.filename}]\n"
+                        f"(No s'ha pogut extreure el contingut d'aquest document.)"
+                    ),
+                }
+            )
+
+    content.append({"type": "text", "text": "Retorna el JSON de validació."})
+    return content
+
+
+async def run_document_validation(
+    provider_type: str,
+    entity_type: str,
+    required_slots: list[dict],
+    extracted_docs: list[ExtractedDoc],
+    anthropic_api_key: str,
+    openai_api_key: str,
+) -> tuple[str, str]:
+    """
+    Run ad-hoc document validation using AI.
+
+    Matches each uploaded document against the required slots for the
+    given provider/entity type and returns a structured JSON string.
+
+    Strategy: Anthropic first (up to 2 attempts), then OpenAI fallback.
+
+    Returns:
+        Tuple of (json_string, model_name_used)
+    """
+    content_list = _build_validation_content(
+        provider_type, entity_type, required_slots, extracted_docs
+    )
+
+    # --- Anthropic (Claude) — primary ---
+    last_exception: Optional[Exception] = None
+    for attempt in range(2):
+        try:
+            logger.info(
+                "Calling Anthropic for validation (attempt %d): %s/%s",
+                attempt + 1,
+                provider_type,
+                entity_type,
+            )
+            client = _get_anthropic_client(anthropic_api_key)
+            response = await client.messages.create(
+                model=DEFAULT_MODEL,
+                max_tokens=4096,
+                system=[
+                    {
+                        "type": "text",
+                        "text": VALIDATION_SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                messages=[{"role": "user", "content": content_list}],
+            )
+            if not response.content:
+                raise ValueError("Anthropic returned an empty content list")
+            result_text = response.content[0].text
+            logger.info("Anthropic validation call succeeded on attempt %d", attempt + 1)
+            return result_text, DEFAULT_MODEL
+        except anthropic.RateLimitError as exc:
+            logger.warning("Anthropic rate limit (attempt %d): %s", attempt + 1, exc)
+            last_exception = exc
+            if attempt == 0:
+                await asyncio.sleep(2)
+        except anthropic.APIStatusError as exc:
+            if exc.status_code >= 500:
+                logger.warning(
+                    "Anthropic server error %d (attempt %d): %s",
+                    exc.status_code,
+                    attempt + 1,
+                    exc,
+                )
+                last_exception = exc
+                if attempt == 0:
+                    await asyncio.sleep(2)
+            else:
+                raise
+        except Exception as exc:
+            logger.warning("Anthropic validation failed (attempt %d): %s", attempt + 1, exc)
+            last_exception = exc
+            if attempt == 0:
+                await asyncio.sleep(2)
+
+    # --- OpenAI (GPT-4o) — fallback ---
+    logger.warning(
+        "Anthropic failed after 2 attempts (%s) — falling back to OpenAI for validation",
+        last_exception,
+    )
+    try:
+        openai_client = _get_openai_client(openai_api_key)
+        openai_content = _convert_to_openai_content(content_list)
+        response = await openai_client.chat.completions.create(
+            model="gpt-4o",
+            max_tokens=4096,
+            messages=[
+                {"role": "system", "content": VALIDATION_SYSTEM_PROMPT},
+                {"role": "user", "content": openai_content},
+            ],
+        )
+        result_text = response.choices[0].message.content
+        if result_text is None:
+            raise ValueError(
+                f"OpenAI returned null content "
+                f"(finish_reason: {response.choices[0].finish_reason})"
+            )
+        logger.info("OpenAI validation call succeeded")
+        return result_text, "gpt-4o"
+    except Exception as exc:
+        logger.error("Both Anthropic and OpenAI failed for validation: %s", exc)
+        raise RuntimeError(
+            f"Validation failed on all AI providers. Last Anthropic error: {last_exception}. "
+            f"OpenAI error: {exc}"
+        ) from exc
+
+
 async def run_analysis(
     provider_name: str,
     provider_type: str,

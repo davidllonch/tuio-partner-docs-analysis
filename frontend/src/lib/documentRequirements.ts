@@ -1,10 +1,35 @@
+/**
+ * Document requirements module.
+ *
+ * Dual purpose:
+ *
+ * 1. Partner-facing upload form (StructuredDocumentUploader / InvitePage):
+ *    Uses the local `DocumentSlot` interface and `getRequiredSlots()` function.
+ *    These include extra UX fields (note, sameAsConstitutionOption, etc.) that
+ *    are only needed in the partner-facing form and are NOT sent to the backend.
+ *
+ * 2. Analyst-facing tools (DocumentationListPage / ValidateDocumentsPage):
+ *    Uses `useDocumentRequirements()` hook which fetches from the backend API.
+ *    The backend is the single source of truth for which documents are required.
+ *    To change requirements, edit backend/app/routers/validate_documents.py.
+ */
+
+import { useQuery } from '@tanstack/react-query'
+import { fetchDocumentRequirements } from './api'
+import type { ProviderType, EntityType } from './types'
+
+// ---------------------------------------------------------------------------
+// Partner-facing DocumentSlot (used by StructuredDocumentUploader + InvitePage)
+// Includes extra UX-only fields not present in the API response.
+// ---------------------------------------------------------------------------
+
 export interface DocumentSlot {
   id: string
-  label: string           // Spanish label shown to the partner
-  note?: string           // Explanatory note for conditional slots
-  isConditional: boolean  // true → partner can mark "No me aplica"
-  hasDeclarationTemplate: boolean  // true → show download button
-  sameAsConstitutionOption?: boolean  // true → show "same as escrituras de constitución" checkbox
+  label: string
+  note?: string
+  isConditional: boolean
+  hasDeclarationTemplate: boolean
+  sameAsConstitutionOption?: boolean
 }
 
 // Base document slots for Persona Jurídica (legal entity)
@@ -49,8 +74,11 @@ const DECLARATIONS_SLOT: DocumentSlot[] = [
 ]
 
 /**
- * Returns the ordered list of required document slots for a given partner
- * type and entity type combination.
+ * Returns the ordered list of required document slots for the partner-facing
+ * upload form (StructuredDocumentUploader / InvitePage).
+ *
+ * For analyst-facing pages, use `useDocumentRequirements()` instead — it
+ * fetches from the backend, which is the single source of truth.
  */
 export function getRequiredSlots(providerType: string, entityType: string): DocumentSlot[] {
   const baseSlots = entityType === 'PJ' ? PJ_BASE_SLOTS : PF_BASE_SLOTS
@@ -64,4 +92,27 @@ export function getRequiredSlots(providerType: string, entityType: string): Docu
   }
 
   return baseSlots
+}
+
+// ---------------------------------------------------------------------------
+// Analyst-facing hook — fetches from backend API
+// ---------------------------------------------------------------------------
+
+/**
+ * React Query hook that fetches the required document slots from the backend.
+ * Used by DocumentationListPage and ValidateDocumentsPage.
+ *
+ * The backend (validate_documents.py) is the single source of truth.
+ * To change which documents are required, edit that Python file.
+ */
+export function useDocumentRequirements(
+  providerType: ProviderType | string,
+  entityType: EntityType | string
+) {
+  return useQuery({
+    queryKey: ['document-requirements', providerType, entityType],
+    queryFn: () => fetchDocumentRequirements(providerType, entityType),
+    staleTime: 1000 * 60 * 10, // cache 10 min — requirements rarely change
+    enabled: Boolean(providerType) && Boolean(entityType),
+  })
 }

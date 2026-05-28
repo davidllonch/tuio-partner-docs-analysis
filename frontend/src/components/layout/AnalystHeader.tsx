@@ -30,6 +30,7 @@ export function AnalystHeader() {
     location.pathname === '/dashboard' ||
     location.pathname === '/invitations' ||
     location.pathname === '/documentation-list' ||
+    location.pathname === '/validate-documents' ||
     location.pathname.startsWith('/submissions/')
   const isTemplatesActive =
     location.pathname === '/declaration-templates' ||
@@ -95,6 +96,13 @@ export function AnalystHeader() {
                         onClick={() => setOpenMenu(null)}
                       >
                         {t('nav.documentationList')}
+                      </Link>
+                      <Link
+                        to="/validate-documents"
+                        className={dropdownItemClass}
+                        onClick={() => setOpenMenu(null)}
+                      >
+                        {t('nav.validateDocuments')}
                       </Link>
                     </div>
                   )}

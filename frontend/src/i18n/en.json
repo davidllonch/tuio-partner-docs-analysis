@@ -7,7 +7,8 @@
     "contractTemplates": "Contract Templates",
     "partners": "Partners",
     "templates": "Templates",
-    "documentationList": "Documentation List"
+    "documentationList": "Documentation List",
+    "validateDocuments": "Document Validation"
   },
   "landing": {
     "title": "KYC/KYB for Tuio Partners",
@@ -286,6 +287,33 @@
   },
   "docList": {
     "title": "Documentation List",
-    "subtitle": "Documents required from each partner type based on their legal form."
+    "subtitle": "View the required documents for each partner type and entity."
+  },
+  "validateDocuments": {
+    "title": "Document Validation",
+    "subtitle": "Check whether a set of received documents covers all requirements for the selected partner type.",
+    "providerType": "Partner type",
+    "entityType": "Entity type",
+    "dropzone": "Drag documents here or click to select them",
+    "dropzoneHint": "PDF, JPEG, PNG, DOCX — max. 20 MB per file, 100 MB total",
+    "totalSize": "Total: {{size}} MB / 100 MB maximum",
+    "totalTooLarge": "Limit exceeded",
+    "validate": "Validate",
+    "validating": "Validating documents...",
+    "resultTitle": "Validation result",
+    "colStatus": "Status",
+    "colDocument": "Required document",
+    "colFile": "Provided file",
+    "colObservation": "Observations",
+    "statusCovered": "Covered",
+    "statusPartial": "Partial",
+    "statusMissing": "Not provided",
+    "statusConditional": "Conditional",
+    "unmatchedFiles": "Files not matched to any requirement",
+    "newValidation": "New validation",
+    "modelUsed": "AI model: {{model}}",
+    "errorGeneric": "Could not complete the validation. Please try again.",
+    "fileTooLarge": "File {{name}} exceeds the 20 MB limit.",
+    "invalidType": "File type not allowed: {{name}}. Only PDF, JPEG, PNG and DOCX are accepted."
   }
 }

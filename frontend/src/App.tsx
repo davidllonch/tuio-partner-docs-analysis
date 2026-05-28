@@ -13,6 +13,7 @@ import { InvitePage } from './pages/InvitePage'
 import { DeclarationTemplatesPage } from './pages/DeclarationTemplatesPage'
 import { ContractTemplatesPage } from './pages/ContractTemplatesPage'
 import { DocumentationListPage } from './pages/DocumentationListPage'
+import { ValidateDocumentsPage } from './pages/ValidateDocumentsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +49,7 @@ export function App() {
               <Route path="/declaration-templates" element={<DeclarationTemplatesPage />} />
               <Route path="/contract-templates" element={<ContractTemplatesPage />} />
               <Route path="/documentation-list" element={<DocumentationListPage />} />
+              <Route path="/validate-documents" element={<ValidateDocumentsPage />} />
             </Route>
 
             {/* Catch-all: redirect unknown URLs to login */}
